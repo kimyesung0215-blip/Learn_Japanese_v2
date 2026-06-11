@@ -23,15 +23,9 @@
     background:#0F172A;
     color:#F8FAFC;
     overscroll-behavior-y:none;
+    transition: background .2s, color .2s;
   }
-  /* 설계도 격자: opacity 3% 수준, 제도 용지 느낌 */
-  .bp-grid {
-    background-image:
-      linear-gradient(rgba(111,143,191,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(111,143,191,0.02) 1px, transparent 1px);
-    background-size: 24px 24px;
-    background-color:#0F172A;
-  }
+  body.light { background:#F5F7FA; color:#0F172A; }
   .jp { font-family:'Noto Serif JP', serif; }
   #root { height:100%; }
   button { font-family:inherit; border:none; background:none; color:inherit; cursor:pointer; }
@@ -680,12 +674,10 @@ function Pron({ y, size, style }) {
   return <span style={{display:'block', fontSize:size || 10, opacity:0.6, marginTop:2, fontWeight:500, letterSpacing:'0.3px', fontFamily:"'Noto Sans KR', sans-serif", fontStyle:'italic', ...style}}>{t}</span>;
 }
 
-// 도면 팔레트: 저채도 블루 계열, 네온 금지
-const C = {
-  bg:'#0F172A', panel:'#1E293B', card:'#243247', cardHi:'#2B3D58',
-  line:'rgba(111,143,191,0.18)', text:'#F8FAFC', sub:'#94A3B8',
-  ok:'#22C55E', bad:'#EF4444',
-};
+// 도면 팔레트
+const DARK_C  = { bg:'#0F172A', panel:'#1E293B', card:'#243247', cardHi:'#2B3D58', line:'rgba(111,143,191,0.18)', text:'#F8FAFC', sub:'#94A3B8', ok:'#22C55E', bad:'#EF4444' };
+const LIGHT_C = { bg:'#F5F7FA', panel:'#E8EDF5', card:'#FFFFFF',  cardHi:'#ECF0F9', line:'rgba(74,111,165,0.16)',  text:'#0F172A', sub:'#64748B', ok:'#16A34A', bad:'#DC2626' };
+const C = {...DARK_C};  // App render 시 Object.assign으로 교체됨
 const THEMES = [
   {name:'블루프린트', accent:'#4A6FA5', accent2:'#6F8FBF'},
   {name:'스틸',      accent:'#5C7A99', accent2:'#84A0BC'},
@@ -714,6 +706,8 @@ const ICONS = {
   chat:  ['M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z'],
   ruler: ['M21 3L3 21h18V3z', 'M14 10v2', 'M11 13v2', 'M17 7v2'],
   gear:  ['M4 21v-7', 'M4 10V3', 'M12 21v-9', 'M12 8V3', 'M20 21v-5', 'M20 12V3', 'M2 14h4', 'M10 8h4', 'M18 16h4'],
+  sun:   ['M12 17a5 5 0 100-10 5 5 0 000 10z','M12 1v2','M12 21v2','M4.22 4.22l1.42 1.42','M18.36 18.36l1.42 1.42','M1 12h2','M21 12h2','M4.22 19.78l1.42-1.42','M18.36 5.64l1.42-1.42'],
+  moon:  ['M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z'],
 };
 // 원형 진행률 (도넛)
 function Donut({ pct, size, theme }) {
@@ -1927,7 +1921,7 @@ function HomeTab({ theme, onGo }) {
 /* =========================================================
    설정 바텀시트
 ========================================================= */
-function SettingsSheet({ theme, themeIdx, setThemeIdx, showYomi, setShowYomi, onClose }) {
+function SettingsSheet({ theme, themeIdx, setThemeIdx, showYomi, setShowYomi, darkMode, onClose }) {
   const resetStats = () => {
     if (window.confirm('테스트 기록을 모두 삭제할까요?')) {
       removeLS('testHistory');
@@ -1935,7 +1929,7 @@ function SettingsSheet({ theme, themeIdx, setThemeIdx, showYomi, setShowYomi, on
     }
   };
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background: darkMode ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.3)', zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center'}}>
       <div onClick={e => e.stopPropagation()} style={{
         width:'100%', maxWidth:480, background:C.panel, borderRadius:'22px 22px 0 0',
         padding:'20px 20px calc(24px + env(safe-area-inset-bottom))', animation:'sheetUp .25s ease',
@@ -1995,23 +1989,29 @@ function App() {
   const [themeIdx, setThemeIdxRaw] = useState(() => loadLS('themeIdx', 0));
   const [showYomi, setShowYomiRaw] = useState(() => loadLS('showYomi', true));
   const [showPron, setShowPronRaw] = useState(() => loadLS('showPron', false));
+  const [darkMode, setDarkModeRaw] = useState(() => loadLS('darkMode', true));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const theme = THEMES[themeIdx] || THEMES[0];
   const setThemeIdx = (i) => { setThemeIdxRaw(i); saveLS('themeIdx', i); };
   const setShowYomi = (fn) => setShowYomiRaw(v => { const next = typeof fn === 'function' ? fn(v) : fn; saveLS('showYomi', next); return next; });
   const togglePron = () => setShowPronRaw(v => { saveLS('showPron', !v); return !v; });
+  const toggleDark = () => setDarkModeRaw(v => { saveLS('darkMode', !v); return !v; });
+
+  // C를 렌더 전에 동기적으로 교체 — 모든 자식이 올바른 팔레트를 봄
+  Object.assign(C, darkMode ? DARK_C : LIGHT_C);
 
   useEffect(() => {
+    document.body.classList.toggle('light', !darkMode);
     const meta = document.querySelector('meta[name=theme-color]');
     if (meta) meta.setAttribute('content', C.bg);
-  }, [themeIdx]);
+  }, [darkMode, themeIdx]);
 
   return (
     <PronCtx.Provider value={showPron}>
     <div className="bp-grid" style={{maxWidth:480, margin:'0 auto', minHeight:'100%', display:'flex', flexDirection:'column'}}>
       {/* 헤더 */}
       <header style={{
-        position:'sticky', top:0, zIndex:30, background:'rgba(15,23,42,0.92)', backdropFilter:'blur(6px)',
+        position:'sticky', top:0, zIndex:30, background: darkMode ? 'rgba(15,23,42,0.92)' : 'rgba(245,247,250,0.95)', backdropFilter:'blur(6px)',
         padding:'calc(12px + env(safe-area-inset-top)) 18px 12px',
         display:'flex', justifyContent:'space-between', alignItems:'center',
         borderBottom:'1px solid ' + C.line,
@@ -2033,6 +2033,9 @@ function App() {
             color: showPron ? '#fff' : C.sub,
             border:'1px solid ' + C.line, transition:'background .15s',
           }}>Aa</button>
+          <button onClick={toggleDark} title={darkMode ? '라이트 모드' : '다크 모드'} style={{padding:4, color:C.sub, display:'flex'}}>
+            <Ic d={ICONS[darkMode ? 'sun' : 'moon']} size={19} />
+          </button>
           <button onClick={() => setSettingsOpen(true)} style={{padding:4, color:C.sub, display:'flex'}}><Ic d={ICONS.gear} size={19} /></button>
         </div>
       </header>
@@ -2072,7 +2075,8 @@ function App() {
 
       {settingsOpen && (
         <SettingsSheet theme={theme} themeIdx={themeIdx} setThemeIdx={setThemeIdx}
-          showYomi={showYomi} setShowYomi={setShowYomi} onClose={() => setSettingsOpen(false)} />
+          showYomi={showYomi} setShowYomi={setShowYomi} darkMode={darkMode}
+          onClose={() => setSettingsOpen(false)} />
       )}
     </div>
     </PronCtx.Provider>
