@@ -1,0 +1,2085 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>일본어 학습</title>
+<meta name="theme-color" content="#0F172A" />
+<link rel="manifest" href="./manifest.json" />
+<link rel="icon" href="./icon-192.png" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Serif+JP:wght@500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body {
+    font-family:'Pretendard', 'Noto Sans KR', sans-serif;
+    background:#0F172A;
+    color:#F8FAFC;
+    overscroll-behavior-y:none;
+  }
+  /* 설계도 격자: opacity 3% 수준, 제도 용지 느낌 */
+  .bp-grid {
+    background-image:
+      linear-gradient(rgba(111,143,191,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(111,143,191,0.02) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-color:#0F172A;
+  }
+  .jp { font-family:'Noto Serif JP', serif; }
+  #root { height:100%; }
+  button { font-family:inherit; border:none; background:none; color:inherit; cursor:pointer; }
+  input { font-family:inherit; }
+  ::-webkit-scrollbar { width:0; height:0; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(8px);} to { opacity:1; transform:none;} }
+  @keyframes sheetUp { from { transform:translateY(100%);} to { transform:none;} }
+  .fade-up { animation:fadeUp .25s ease both; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function(){});
+    });
+  }
+</script>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+/* =========================================================
+   데이터: 오십음도 (히라가나 / 가타카나 / 로마자)
+   rows: 5칸 단위, null = 빈칸
+========================================================= */
+const GOJUON = [
+  [{h:'あ',k:'ア',r:'a'},{h:'い',k:'イ',r:'i'},{h:'う',k:'ウ',r:'u'},{h:'え',k:'エ',r:'e'},{h:'お',k:'オ',r:'o'}],
+  [{h:'か',k:'カ',r:'ka'},{h:'き',k:'キ',r:'ki'},{h:'く',k:'ク',r:'ku'},{h:'け',k:'ケ',r:'ke'},{h:'こ',k:'コ',r:'ko'}],
+  [{h:'さ',k:'サ',r:'sa'},{h:'し',k:'シ',r:'shi'},{h:'す',k:'ス',r:'su'},{h:'せ',k:'セ',r:'se'},{h:'そ',k:'ソ',r:'so'}],
+  [{h:'た',k:'タ',r:'ta'},{h:'ち',k:'チ',r:'chi'},{h:'つ',k:'ツ',r:'tsu'},{h:'て',k:'テ',r:'te'},{h:'と',k:'ト',r:'to'}],
+  [{h:'な',k:'ナ',r:'na'},{h:'に',k:'ニ',r:'ni'},{h:'ぬ',k:'ヌ',r:'nu'},{h:'ね',k:'ネ',r:'ne'},{h:'の',k:'ノ',r:'no'}],
+  [{h:'は',k:'ハ',r:'ha'},{h:'ひ',k:'ヒ',r:'hi'},{h:'ふ',k:'フ',r:'fu'},{h:'へ',k:'ヘ',r:'he'},{h:'ほ',k:'ホ',r:'ho'}],
+  [{h:'ま',k:'マ',r:'ma'},{h:'み',k:'ミ',r:'mi'},{h:'む',k:'ム',r:'mu'},{h:'め',k:'メ',r:'me'},{h:'も',k:'モ',r:'mo'}],
+  [{h:'や',k:'ヤ',r:'ya'},null,{h:'ゆ',k:'ユ',r:'yu'},null,{h:'よ',k:'ヨ',r:'yo'}],
+  [{h:'ら',k:'ラ',r:'ra'},{h:'り',k:'リ',r:'ri'},{h:'る',k:'ル',r:'ru'},{h:'れ',k:'レ',r:'re'},{h:'ろ',k:'ロ',r:'ro'}],
+  [{h:'わ',k:'ワ',r:'wa'},null,null,null,{h:'を',k:'ヲ',r:'o(wo)'}],
+  [{h:'ん',k:'ン',r:'n'},null,null,null,null],
+];
+const DAKUON = [
+  [{h:'が',k:'ガ',r:'ga'},{h:'ぎ',k:'ギ',r:'gi'},{h:'ぐ',k:'グ',r:'gu'},{h:'げ',k:'ゲ',r:'ge'},{h:'ご',k:'ゴ',r:'go'}],
+  [{h:'ざ',k:'ザ',r:'za'},{h:'じ',k:'ジ',r:'ji'},{h:'ず',k:'ズ',r:'zu'},{h:'ぜ',k:'ゼ',r:'ze'},{h:'ぞ',k:'ゾ',r:'zo'}],
+  [{h:'だ',k:'ダ',r:'da'},{h:'ぢ',k:'ヂ',r:'ji(di)'},{h:'づ',k:'ヅ',r:'zu(du)'},{h:'で',k:'デ',r:'de'},{h:'ど',k:'ド',r:'do'}],
+  [{h:'ば',k:'バ',r:'ba'},{h:'び',k:'ビ',r:'bi'},{h:'ぶ',k:'ブ',r:'bu'},{h:'べ',k:'ベ',r:'be'},{h:'ぼ',k:'ボ',r:'bo'}],
+  [{h:'ぱ',k:'パ',r:'pa'},{h:'ぴ',k:'ピ',r:'pi'},{h:'ぷ',k:'プ',r:'pu'},{h:'ぺ',k:'ペ',r:'pe'},{h:'ぽ',k:'ポ',r:'po'}],
+];
+const YOUON = [
+  [{h:'きゃ',k:'キャ',r:'kya'},{h:'きゅ',k:'キュ',r:'kyu'},{h:'きょ',k:'キョ',r:'kyo'}],
+  [{h:'しゃ',k:'シャ',r:'sha'},{h:'しゅ',k:'シュ',r:'shu'},{h:'しょ',k:'ショ',r:'sho'}],
+  [{h:'ちゃ',k:'チャ',r:'cha'},{h:'ちゅ',k:'チュ',r:'chu'},{h:'ちょ',k:'チョ',r:'cho'}],
+  [{h:'にゃ',k:'ニャ',r:'nya'},{h:'にゅ',k:'ニュ',r:'nyu'},{h:'にょ',k:'ニョ',r:'nyo'}],
+  [{h:'ひゃ',k:'ヒャ',r:'hya'},{h:'ひゅ',k:'ヒュ',r:'hyu'},{h:'ひょ',k:'ヒョ',r:'hyo'}],
+  [{h:'みゃ',k:'ミャ',r:'mya'},{h:'みゅ',k:'ミュ',r:'myu'},{h:'みょ',k:'ミョ',r:'myo'}],
+  [{h:'りゃ',k:'リャ',r:'rya'},{h:'りゅ',k:'リュ',r:'ryu'},{h:'りょ',k:'リョ',r:'ryo'}],
+  [{h:'ぎゃ',k:'ギャ',r:'gya'},{h:'ぎゅ',k:'ギュ',r:'gyu'},{h:'ぎょ',k:'ギョ',r:'gyo'}],
+  [{h:'じゃ',k:'ジャ',r:'ja'},{h:'じゅ',k:'ジュ',r:'ju'},{h:'じょ',k:'ジョ',r:'jo'}],
+  [{h:'びゃ',k:'ビャ',r:'bya'},{h:'びゅ',k:'ビュ',r:'byu'},{h:'びょ',k:'ビョ',r:'byo'}],
+  [{h:'ぴゃ',k:'ピャ',r:'pya'},{h:'ぴゅ',k:'ピュ',r:'pyu'},{h:'ぴょ',k:'ピョ',r:'pyo'}],
+];
+const TOKUSHU = [
+  { title:'발음(撥音) ん/ン', desc:'한 박자를 차지하는 콧소리. 뒤에 오는 소리에 따라 [n]·[m]·[ŋ]으로 발음이 달라져요.',
+    ex:[{jp:'せんせい',ko:'선생님 [n]'},{jp:'さんぽ',ko:'산책 [m]'},{jp:'りんご',ko:'사과 [ŋ]'}] },
+  { title:'촉음(促音) っ/ッ', desc:'작은 つ. 한 박자만큼 숨을 멈췄다가 뒤 자음을 이어 발음해요. 표기상 뒤 자음이 겹친 것처럼 로마자로 적어요.',
+    ex:[{jp:'きって',ko:'우표 (kitte)'},{jp:'がっこう',ko:'학교 (gakkou)'},{jp:'ざっし',ko:'잡지 (zasshi)'}] },
+  { title:'장음(長音)', desc:'모음을 한 박자 더 길게 발음. あ단+あ, い단+い, う단+う, え단+い/え, お단+う/お. 가타카나는 「ー」로 표기해요.',
+    ex:[{jp:'おかあさん',ko:'어머니'},{jp:'おとうさん',ko:'아버지'},{jp:'コーヒー',ko:'커피'}] },
+];
+/* =========================================================
+   데이터: 단어 150 (3과 い형용사·음식·주문 관련 우선)
+========================================================= */
+const WORDS = [
+  // ── い형용사 (3과 핵심)
+  {jp:'高い',yomi:'たかい',ko:'높다, 비싸다'},
+  {jp:'安い',yomi:'やすい',ko:'싸다'},
+  {jp:'暑い',yomi:'あつい',ko:'덥다'},
+  {jp:'寒い',yomi:'さむい',ko:'춥다'},
+  {jp:'難しい',yomi:'むずかしい',ko:'어렵다'},
+  {jp:'易しい',yomi:'やさしい',ko:'쉽다'},
+  {jp:'面白い',yomi:'おもしろい',ko:'재미있다'},
+  {jp:'つまらない',yomi:'つまらない',ko:'재미없다, 시시하다'},
+  {jp:'おいしい',yomi:'おいしい',ko:'맛있다'},
+  {jp:'まずい',yomi:'まずい',ko:'맛없다'},
+  {jp:'大きい',yomi:'おおきい',ko:'크다'},
+  {jp:'小さい',yomi:'ちいさい',ko:'작다'},
+  {jp:'新しい',yomi:'あたらしい',ko:'새롭다'},
+  {jp:'古い',yomi:'ふるい',ko:'낡다, 오래되다'},
+  {jp:'いい',yomi:'いい',ko:'좋다'},
+  {jp:'悪い',yomi:'わるい',ko:'나쁘다'},
+  {jp:'長い',yomi:'ながい',ko:'길다'},
+  {jp:'短い',yomi:'みじかい',ko:'짧다'},
+  {jp:'速い',yomi:'はやい',ko:'빠르다'},
+  {jp:'遅い',yomi:'おそい',ko:'느리다, 늦다'},
+  {jp:'近い',yomi:'ちかい',ko:'가깝다'},
+  {jp:'遠い',yomi:'とおい',ko:'멀다'},
+  {jp:'甘い',yomi:'あまい',ko:'달다'},
+  {jp:'辛い',yomi:'からい',ko:'맵다'},
+  {jp:'広い',yomi:'ひろい',ko:'넓다'},
+  {jp:'狭い',yomi:'せまい',ko:'좁다'},
+  {jp:'楽しい',yomi:'たのしい',ko:'즐겁다'},
+  {jp:'忙しい',yomi:'いそがしい',ko:'바쁘다'},
+  {jp:'熱い',yomi:'あつい',ko:'뜨겁다'},
+  {jp:'冷たい',yomi:'つめたい',ko:'차갑다'},
+  {jp:'明るい',yomi:'あかるい',ko:'밝다'},
+  {jp:'暗い',yomi:'くらい',ko:'어둡다'},
+  {jp:'かわいい',yomi:'かわいい',ko:'귀엽다'},
+  {jp:'うれしい',yomi:'うれしい',ko:'기쁘다'},
+  // ── 음식·주문 (3과 장면)
+  {jp:'すし',yomi:'すし',ko:'초밥'},
+  {jp:'ラーメン',yomi:'ラーメン',ko:'라면(라멘)'},
+  {jp:'うどん',yomi:'うどん',ko:'우동'},
+  {jp:'そば',yomi:'そば',ko:'소바, 메밀국수'},
+  {jp:'カレー',yomi:'カレー',ko:'카레'},
+  {jp:'パン',yomi:'パン',ko:'빵'},
+  {jp:'ご飯',yomi:'ごはん',ko:'밥, 식사'},
+  {jp:'水',yomi:'みず',ko:'물'},
+  {jp:'お茶',yomi:'おちゃ',ko:'차(녹차)'},
+  {jp:'コーヒー',yomi:'コーヒー',ko:'커피'},
+  {jp:'ジュース',yomi:'ジュース',ko:'주스'},
+  {jp:'牛乳',yomi:'ぎゅうにゅう',ko:'우유'},
+  {jp:'卵',yomi:'たまご',ko:'달걀'},
+  {jp:'魚',yomi:'さかな',ko:'생선, 물고기'},
+  {jp:'肉',yomi:'にく',ko:'고기'},
+  {jp:'野菜',yomi:'やさい',ko:'채소'},
+  {jp:'果物',yomi:'くだもの',ko:'과일'},
+  {jp:'りんご',yomi:'りんご',ko:'사과'},
+  {jp:'みかん',yomi:'みかん',ko:'귤'},
+  {jp:'ケーキ',yomi:'ケーキ',ko:'케이크'},
+  {jp:'お菓子',yomi:'おかし',ko:'과자'},
+  {jp:'メニュー',yomi:'メニュー',ko:'메뉴'},
+  {jp:'値段',yomi:'ねだん',ko:'가격'},
+  // ── 학교
+  {jp:'学校',yomi:'がっこう',ko:'학교'},
+  {jp:'先生',yomi:'せんせい',ko:'선생님'},
+  {jp:'学生',yomi:'がくせい',ko:'학생'},
+  {jp:'友だち',yomi:'ともだち',ko:'친구'},
+  {jp:'教室',yomi:'きょうしつ',ko:'교실'},
+  {jp:'机',yomi:'つくえ',ko:'책상'},
+  {jp:'いす',yomi:'いす',ko:'의자'},
+  {jp:'本',yomi:'ほん',ko:'책'},
+  {jp:'ノート',yomi:'ノート',ko:'노트'},
+  {jp:'鉛筆',yomi:'えんぴつ',ko:'연필'},
+  {jp:'ペン',yomi:'ペン',ko:'펜'},
+  {jp:'かばん',yomi:'かばん',ko:'가방'},
+  {jp:'授業',yomi:'じゅぎょう',ko:'수업'},
+  {jp:'宿題',yomi:'しゅくだい',ko:'숙제'},
+  {jp:'テスト',yomi:'テスト',ko:'시험, 테스트'},
+  {jp:'図書館',yomi:'としょかん',ko:'도서관'},
+  // ── 사람·가족
+  {jp:'家族',yomi:'かぞく',ko:'가족'},
+  {jp:'父',yomi:'ちち',ko:'(나의) 아버지'},
+  {jp:'母',yomi:'はは',ko:'(나의) 어머니'},
+  {jp:'兄',yomi:'あに',ko:'(나의) 형, 오빠'},
+  {jp:'姉',yomi:'あね',ko:'(나의) 누나, 언니'},
+  {jp:'弟',yomi:'おとうと',ko:'남동생'},
+  {jp:'妹',yomi:'いもうと',ko:'여동생'},
+  {jp:'人',yomi:'ひと',ko:'사람'},
+  {jp:'名前',yomi:'なまえ',ko:'이름'},
+  // ── 장소
+  {jp:'家',yomi:'いえ',ko:'집'},
+  {jp:'部屋',yomi:'へや',ko:'방'},
+  {jp:'駅',yomi:'えき',ko:'역'},
+  {jp:'店',yomi:'みせ',ko:'가게'},
+  {jp:'レストラン',yomi:'レストラン',ko:'레스토랑'},
+  {jp:'コンビニ',yomi:'コンビニ',ko:'편의점'},
+  {jp:'病院',yomi:'びょういん',ko:'병원'},
+  {jp:'銀行',yomi:'ぎんこう',ko:'은행'},
+  {jp:'郵便局',yomi:'ゆうびんきょく',ko:'우체국'},
+  {jp:'公園',yomi:'こうえん',ko:'공원'},
+  {jp:'デパート',yomi:'デパート',ko:'백화점'},
+  {jp:'トイレ',yomi:'トイレ',ko:'화장실'},
+  {jp:'国',yomi:'くに',ko:'나라'},
+  {jp:'町',yomi:'まち',ko:'마을, 동네'},
+  {jp:'海',yomi:'うみ',ko:'바다'},
+  {jp:'山',yomi:'やま',ko:'산'},
+  {jp:'日本',yomi:'にほん',ko:'일본'},
+  {jp:'韓国',yomi:'かんこく',ko:'한국'},
+  // ── 시간
+  {jp:'今',yomi:'いま',ko:'지금'},
+  {jp:'今日',yomi:'きょう',ko:'오늘'},
+  {jp:'明日',yomi:'あした',ko:'내일'},
+  {jp:'昨日',yomi:'きのう',ko:'어제'},
+  {jp:'朝',yomi:'あさ',ko:'아침'},
+  {jp:'昼',yomi:'ひる',ko:'낮, 점심'},
+  {jp:'夜',yomi:'よる',ko:'밤'},
+  {jp:'時間',yomi:'じかん',ko:'시간'},
+  {jp:'毎日',yomi:'まいにち',ko:'매일'},
+  {jp:'週末',yomi:'しゅうまつ',ko:'주말'},
+  {jp:'休み',yomi:'やすみ',ko:'휴일, 쉬는 시간'},
+  {jp:'誕生日',yomi:'たんじょうび',ko:'생일'},
+  // ── 동사
+  {jp:'行く',yomi:'いく',ko:'가다'},
+  {jp:'来る',yomi:'くる',ko:'오다'},
+  {jp:'帰る',yomi:'かえる',ko:'돌아가다, 돌아오다'},
+  {jp:'食べる',yomi:'たべる',ko:'먹다'},
+  {jp:'飲む',yomi:'のむ',ko:'마시다'},
+  {jp:'見る',yomi:'みる',ko:'보다'},
+  {jp:'聞く',yomi:'きく',ko:'듣다, 묻다'},
+  {jp:'読む',yomi:'よむ',ko:'읽다'},
+  {jp:'書く',yomi:'かく',ko:'쓰다'},
+  {jp:'話す',yomi:'はなす',ko:'말하다, 이야기하다'},
+  {jp:'買う',yomi:'かう',ko:'사다'},
+  {jp:'する',yomi:'する',ko:'하다'},
+  {jp:'勉強する',yomi:'べんきょうする',ko:'공부하다'},
+  {jp:'会う',yomi:'あう',ko:'만나다'},
+  {jp:'待つ',yomi:'まつ',ko:'기다리다'},
+  {jp:'起きる',yomi:'おきる',ko:'일어나다'},
+  {jp:'寝る',yomi:'ねる',ko:'자다'},
+  {jp:'遊ぶ',yomi:'あそぶ',ko:'놀다'},
+  {jp:'泳ぐ',yomi:'およぐ',ko:'수영하다'},
+  {jp:'歩く',yomi:'あるく',ko:'걷다'},
+  {jp:'歌う',yomi:'うたう',ko:'노래하다'},
+  {jp:'作る',yomi:'つくる',ko:'만들다'},
+  {jp:'教える',yomi:'おしえる',ko:'가르치다'},
+  {jp:'分かる',yomi:'わかる',ko:'알다, 이해하다'},
+  {jp:'ある',yomi:'ある',ko:'(사물이) 있다'},
+  {jp:'いる',yomi:'いる',ko:'(사람·동물이) 있다'},
+  // ── 사물·생활
+  {jp:'電話',yomi:'でんわ',ko:'전화'},
+  {jp:'携帯',yomi:'けいたい',ko:'휴대전화'},
+  {jp:'テレビ',yomi:'テレビ',ko:'텔레비전'},
+  {jp:'パソコン',yomi:'パソコン',ko:'컴퓨터(PC)'},
+  {jp:'車',yomi:'くるま',ko:'자동차'},
+  {jp:'自転車',yomi:'じてんしゃ',ko:'자전거'},
+  {jp:'電車',yomi:'でんしゃ',ko:'전철'},
+  {jp:'バス',yomi:'バス',ko:'버스'},
+  {jp:'飛行機',yomi:'ひこうき',ko:'비행기'},
+  {jp:'時計',yomi:'とけい',ko:'시계'},
+  {jp:'傘',yomi:'かさ',ko:'우산'},
+  {jp:'服',yomi:'ふく',ko:'옷'},
+  {jp:'靴',yomi:'くつ',ko:'신발'},
+  {jp:'帽子',yomi:'ぼうし',ko:'모자'},
+  {jp:'眼鏡',yomi:'めがね',ko:'안경'},
+  {jp:'お金',yomi:'おかね',ko:'돈'},
+  {jp:'切符',yomi:'きっぷ',ko:'표, 티켓'},
+  {jp:'写真',yomi:'しゃしん',ko:'사진'},
+  {jp:'映画',yomi:'えいが',ko:'영화'},
+  {jp:'音楽',yomi:'おんがく',ko:'음악'},
+  {jp:'歌',yomi:'うた',ko:'노래'},
+  {jp:'スポーツ',yomi:'スポーツ',ko:'스포츠'},
+  {jp:'サッカー',yomi:'サッカー',ko:'축구'},
+  {jp:'野球',yomi:'やきゅう',ko:'야구'},
+  {jp:'テニス',yomi:'テニス',ko:'테니스'},
+  {jp:'旅行',yomi:'りょこう',ko:'여행'},
+  {jp:'買い物',yomi:'かいもの',ko:'쇼핑, 장보기'},
+  {jp:'料理',yomi:'りょうり',ko:'요리'},
+  {jp:'天気',yomi:'てんき',ko:'날씨'},
+  {jp:'雨',yomi:'あめ',ko:'비'},
+  {jp:'雪',yomi:'ゆき',ko:'눈(snow)'},
+  {jp:'春',yomi:'はる',ko:'봄'},
+  {jp:'夏',yomi:'なつ',ko:'여름'},
+  {jp:'秋',yomi:'あき',ko:'가을'},
+  {jp:'冬',yomi:'ふゆ',ko:'겨울'},
+  {jp:'猫',yomi:'ねこ',ko:'고양이'},
+  {jp:'犬',yomi:'いぬ',ko:'개'},
+  {jp:'鳥',yomi:'とり',ko:'새'},
+  {jp:'花',yomi:'はな',ko:'꽃'},
+  {jp:'木',yomi:'き',ko:'나무'},
+  {jp:'空',yomi:'そら',ko:'하늘'},
+  {jp:'月',yomi:'つき',ko:'달'},
+  {jp:'星',yomi:'ほし',ko:'별'},
+];
+
+/* =========================================================
+   데이터: 일상표현 (짝 구조: a→b 주고받기 / 단독)
+========================================================= */
+const EXPRESSIONS = {
+  '인사': [
+    {jp:'おはようございます。',ko:'안녕하세요. (아침)',note:'친구·가족에게는 「おはよう」만 써도 돼요.'},
+    {jp:'こんにちは。',ko:'안녕하세요. (낮)',note:'표기는 は지만 [wa]로 발음해요.'},
+    {jp:'こんばんは。',ko:'안녕하세요. (저녁)',note:'이쪽도 끝의 は는 [wa].'},
+    {rel:'안부 묻고 답하기',
+     a:{jp:'おげんきですか。',ko:'잘 지내세요?'},
+     b:{jp:'はい、げんきです。',ko:'네, 잘 지내요.'},
+     note:'오랜만에 만났을 때 세트로 외워두면 좋아요.'},
+    {jp:'おひさしぶりです。',ko:'오랜만입니다.',note:'친구에겐 「ひさしぶり!」'},
+    {rel:'작별 인사 주고받기',
+     a:{jp:'さようなら。',ko:'안녕히 가세요/계세요.'},
+     b:{jp:'じゃあ、また。',ko:'그럼, 또 봐.'},
+     note:'さようなら는 오래 못 볼 때의 느낌. 친구끼리는 「じゃあね」「またね」가 자연스러워요.'},
+    {jp:'おやすみなさい。',ko:'안녕히 주무세요.',note:'같은 말로 답해요. 친한 사이엔 「おやすみ」.'},
+  ],
+  '자기소개': [
+    {jp:'はじめまして。',ko:'처음 뵙겠습니다.',note:'첫 만남의 시작 인사.'},
+    {jp:'わたしは キム・イェソンです。',ko:'저는 김예성입니다.',note:'「わたしは + 이름 + です」 패턴.'},
+    {jp:'こうこう いちねんせいです。',ko:'고등학교 1학년입니다.',note:'학년: いちねんせい/にねんせい/さんねんせい.'},
+    {jp:'かんこくから きました。',ko:'한국에서 왔습니다.',note:'「〜から きました」 = ~에서 왔습니다.'},
+    {rel:'마무리 인사 주고받기',
+     a:{jp:'どうぞ よろしく おねがいします。',ko:'잘 부탁드립니다.'},
+     b:{jp:'こちらこそ。',ko:'저야말로요.'},
+     note:'자기소개의 마무리 정형 세트. 묻는 쪽도 답하는 쪽도 통째로 외우자!'},
+  ],
+  '감사·사과': [
+    {rel:'감사 주고받기',
+     a:{jp:'ありがとうございます。',ko:'감사합니다.'},
+     b:{jp:'どういたしまして。',ko:'천만에요.'},
+     note:'친한 사이엔 「ありがとう」 — 답은 「ううん」(아니야~)도 자주 써요.'},
+    {rel:'사과 주고받기',
+     a:{jp:'ごめんなさい。',ko:'미안합니다.'},
+     b:{jp:'だいじょうぶです。',ko:'괜찮습니다.'},
+     note:'「すみません」보다 사적인 사과. 친구에겐 「ごめん」 → 「だいじょうぶ」.'},
+    {jp:'すみません。',ko:'죄송합니다 / 저기요 / 감사합니다',note:'사과·부름·가벼운 감사까지 쓰이는 만능 표현!'},
+    {jp:'おねがいします。',ko:'부탁합니다.',note:'무언가를 요청할 때.'},
+  ],
+  '일상': [
+    {rel:'식사 전 ↔ 후',
+     a:{jp:'いただきます。',ko:'잘 먹겠습니다.'},
+     b:{jp:'ごちそうさまでした。',ko:'잘 먹었습니다.'},
+     note:'식사를 여닫는 한 세트. 시작과 끝에 각각 써요.'},
+    {rel:'나갈 때 주고받기',
+     a:{jp:'いってきます。',ko:'다녀오겠습니다.'},
+     b:{jp:'いってらっしゃい。',ko:'다녀오세요.'},
+     note:'나가는 사람 → 배웅하는 사람 순서.'},
+    {rel:'돌아올 때 주고받기',
+     a:{jp:'ただいま。',ko:'다녀왔습니다.'},
+     b:{jp:'おかえりなさい。',ko:'어서 와요.'},
+     note:'돌아온 사람 → 맞이하는 사람. 친한 사이엔 「おかえり」.'},
+    {rel:'가격 묻고 답하기',
+     a:{jp:'いくらですか。',ko:'얼마예요?'},
+     b:{jp:'ごひゃくえんです。',ko:'500엔입니다.'},
+     note:'답은 「숫자 + えんです」. 숫자 탭에서 배운 읽기를 그대로 활용! (3과 장면)'},
+    {jp:'これ、ください。',ko:'이거 주세요.',note:'가게에서 주문할 때 (3과 장면!).'},
+    {jp:'おつかれさまでした。',ko:'수고하셨습니다.',note:'일·활동이 끝났을 때.'},
+    {jp:'ちょっと まってください。',ko:'잠깐 기다려 주세요.',note:'「ちょっと」 = 조금, 잠깐.'},
+  ],
+};
+
+/* =========================================================
+   데이터: 시간과 날짜 (탭⑥)
+========================================================= */
+const HOURS = [
+  {n:'1시',jp:'いちじ'},{n:'2시',jp:'にじ'},{n:'3시',jp:'さんじ'},{n:'4시',jp:'よじ',warn:true},
+  {n:'5시',jp:'ごじ'},{n:'6시',jp:'ろくじ'},{n:'7시',jp:'しちじ',warn:true},{n:'8시',jp:'はちじ'},
+  {n:'9시',jp:'くじ',warn:true},{n:'10시',jp:'じゅうじ'},{n:'11시',jp:'じゅういちじ'},{n:'12시',jp:'じゅうにじ'},
+];
+const MIN5 = [
+  {n:'5분',jp:'ごふん'},{n:'15분',jp:'じゅうごふん'},{n:'25분',jp:'にじゅうごふん'},
+  {n:'30분',jp:'さんじゅっぷん'},{n:'45분',jp:'よんじゅうごふん'},{n:'55분',jp:'ごじゅうごふん'},
+];
+const MIN10 = [
+  {n:'10분',jp:'じゅっぷん'},{n:'20분',jp:'にじゅっぷん'},{n:'30분',jp:'さんじゅっぷん'},
+  {n:'40분',jp:'よんじゅっぷん'},{n:'50분',jp:'ごじゅっぷん'},
+];
+const MIN_UNIT = [
+  {n:'1분',jp:'いっぷん'},{n:'2분',jp:'にふん'},{n:'3분',jp:'さんぷん'},{n:'4분',jp:'よんぷん'},
+  {n:'5분',jp:'ごふん'},{n:'6분',jp:'ろっぷん'},{n:'7분',jp:'ななふん'},{n:'8분',jp:'はっぷん'},
+  {n:'9분',jp:'きゅうふん'},{n:'10분',jp:'じゅっぷん'},{n:'20분',jp:'にじゅっぷん'},{n:'30분',jp:'さんじゅっぷん'},
+  {n:'40분',jp:'よんじゅっぷん'},{n:'50분',jp:'ごじゅっぷん'},{n:'60분',jp:'ろくじゅっぷん'},
+];
+const DAYS31 = [
+  {n:'1일',jp:'ついたち',warn:true},{n:'2일',jp:'ふつか',warn:true},{n:'3일',jp:'みっか',warn:true},
+  {n:'4일',jp:'よっか',warn:true},{n:'5일',jp:'いつか',warn:true},{n:'6일',jp:'むいか',warn:true},
+  {n:'7일',jp:'なのか',warn:true},{n:'8일',jp:'ようか',warn:true},{n:'9일',jp:'ここのか',warn:true},
+  {n:'10일',jp:'とおか',warn:true},{n:'11일',jp:'じゅういちにち'},{n:'12일',jp:'じゅうににち'},
+  {n:'13일',jp:'じゅうさんにち'},{n:'14일',jp:'じゅうよっか',warn:true},{n:'15일',jp:'じゅうごにち'},
+  {n:'16일',jp:'じゅうろくにち'},{n:'17일',jp:'じゅうしちにち'},{n:'18일',jp:'じゅうはちにち'},
+  {n:'19일',jp:'じゅうくにち'},{n:'20일',jp:'はつか',warn:true},{n:'21일',jp:'にじゅういちにち'},
+  {n:'22일',jp:'にじゅうににち'},{n:'23일',jp:'にじゅうさんにち'},{n:'24일',jp:'にじゅうよっか',warn:true},
+  {n:'25일',jp:'にじゅうごにち'},{n:'26일',jp:'にじゅうろくにち'},{n:'27일',jp:'にじゅうしちにち'},
+  {n:'28일',jp:'にじゅうはちにち'},{n:'29일',jp:'にじゅうくにち'},{n:'30일',jp:'さんじゅうにち'},
+  {n:'31일',jp:'さんじゅういちにち'},
+];
+const MONTHS = [
+  {n:'1월',jp:'いちがつ'},{n:'2월',jp:'にがつ'},{n:'3월',jp:'さんがつ'},{n:'4월',jp:'しがつ',warn:true},
+  {n:'5월',jp:'ごがつ'},{n:'6월',jp:'ろくがつ'},{n:'7월',jp:'しちがつ',warn:true},{n:'8월',jp:'はちがつ'},
+  {n:'9월',jp:'くがつ',warn:true},{n:'10월',jp:'じゅうがつ'},{n:'11월',jp:'じゅういちがつ'},{n:'12월',jp:'じゅうにがつ'},
+];
+const RELATIVE_TIME = [
+  {n:'어제',jp:'きのう'},{n:'오늘',jp:'きょう'},{n:'내일',jp:'あした'},
+  {n:'지난주',jp:'せんしゅう'},{n:'이번 주',jp:'こんしゅう'},{n:'다음 주',jp:'らいしゅう'},
+  {n:'지난달',jp:'せんげつ'},{n:'이번 달',jp:'こんげつ'},{n:'다음 달',jp:'らいげつ'},
+  {n:'작년',jp:'きょねん(さくねん)'},{n:'올해',jp:'ことし'},{n:'내년',jp:'らいねん'},
+];
+const TIME_QUIZ_GROUPS = [
+  {name:'시간',items:HOURS},
+  {name:'분',items:MIN_UNIT},
+  {name:'날짜',items:DAYS31},
+  {name:'월',items:MONTHS},
+  {name:'때',items:RELATIVE_TIME.map(x=>({n:x.n, jp:x.jp.replace('(さくねん)','')}))},
+];
+
+/* =========================================================
+   데이터: 숫자 (탭⑦) — 1 ~ 10,000
+========================================================= */
+const ONES = [
+  {n:'1',jp:'いち'},{n:'2',jp:'に'},{n:'3',jp:'さん'},{n:'4',jp:'よん・し',warn:true},
+  {n:'5',jp:'ご'},{n:'6',jp:'ろく'},{n:'7',jp:'なな・しち',warn:true},{n:'8',jp:'はち'},
+  {n:'9',jp:'きゅう・く',warn:true},{n:'10',jp:'じゅう'},
+];
+const TENS = [
+  {n:'10',jp:'じゅう'},{n:'20',jp:'にじゅう'},{n:'30',jp:'さんじゅう'},
+  {n:'40',jp:'よんじゅう'},{n:'50',jp:'ごじゅう'},{n:'60',jp:'ろくじゅう'},
+  {n:'70',jp:'ななじゅう'},{n:'80',jp:'はちじゅう'},{n:'90',jp:'きゅうじゅう'},
+];
+const HUNDREDS = [
+  {n:'100',jp:'ひゃく'},{n:'200',jp:'にひゃく'},{n:'300',jp:'さんびゃく',warn:true},
+  {n:'400',jp:'よんひゃく'},{n:'500',jp:'ごひゃく'},{n:'600',jp:'ろっぴゃく',warn:true},
+  {n:'700',jp:'ななひゃく'},{n:'800',jp:'はっぴゃく',warn:true},{n:'900',jp:'きゅうひゃく'},
+];
+const THOUSANDS = [
+  {n:'1,000',jp:'せん'},{n:'2,000',jp:'にせん'},{n:'3,000',jp:'さんぜん',warn:true},
+  {n:'4,000',jp:'よんせん'},{n:'5,000',jp:'ごせん'},{n:'6,000',jp:'ろくせん'},
+  {n:'7,000',jp:'ななせん'},{n:'8,000',jp:'はっせん',warn:true},{n:'9,000',jp:'きゅうせん'},
+];
+const TENTHOUSAND = [{n:'10,000',jp:'いちまん',warn:true}];
+const NUMBER_ALL = [...ONES, ...TENS, ...HUNDREDS, ...THOUSANDS, ...TENTHOUSAND];
+
+/* =========================================================
+   데이터: 문법 (탭⑧, 3과)
+========================================================= */
+const GRAMMAR = [
+  {title:'〜に します / 〜に する', tag:'선택',
+   desc:'여러 선택지 중 하나로 "정하다"라는 뜻. 메뉴를 고를 때 자주 써요.',
+   ex:[{jp:'わたしは ラーメンに します。',ko:'저는 라멘으로 할게요.'},{jp:'なにに する?',ko:'뭐로 할래? (반말)'}]},
+  {title:'い형용사의 활용', tag:'활용',
+   desc:'기본형은 -い로 끝나요. 정중형은 です를 붙이고, 부정은 い→くない, 연결은 い→くて.',
+   ex:[{jp:'たかい → たかいです',ko:'비싸다 → 비쌉니다 (정중형)'},
+       {jp:'たかい → たかくない(です)',ko:'비싸다 → 비싸지 않다(않습니다) (부정형)'},
+       {jp:'やすくて おいしいです',ko:'싸고 맛있습니다 (연결형 〜くて)'},
+       {jp:'※ いい → よくない / よくて',ko:'いい는 よ-로 활용하는 예외!'}]},
+  {title:'い형용사 반대말 짝', tag:'어휘',
+   desc:'3과 핵심 형용사는 반대말 짝으로 묶어 외우면 쉬워요.',
+   ex:[{jp:'たかい ↔ やすい',ko:'비싸다 ↔ 싸다'},
+       {jp:'あつい ↔ さむい',ko:'덥다 ↔ 춥다'},
+       {jp:'むずかしい ↔ やさしい',ko:'어렵다 ↔ 쉽다'},
+       {jp:'おもしろい ↔ つまらない',ko:'재미있다 ↔ 재미없다'}]},
+  {title:'〜と 〜と どちらが 〜ですか', tag:'비교',
+   desc:'둘을 비교해서 묻는 표현. 대답은 「〜の ほうが 〜です」(~쪽이 ~합니다)로 해요.',
+   ex:[{jp:'すしと ラーメンと どちらが おいしいですか。',ko:'초밥과 라멘 중 어느 쪽이 맛있어요?'},
+       {jp:'すしの ほうが おいしいです。',ko:'초밥 쪽이 맛있어요.'}]},
+  {title:'접두어 お', tag:'경어',
+   desc:'명사 앞에 붙여 공손함·부드러움을 더해요. 일부 단어는 お가 거의 굳어져 있어요.',
+   ex:[{jp:'おちゃ / おかし / おかね',ko:'차 / 과자 / 돈'},{jp:'おなまえは?',ko:'성함은요? (공손하게 묻기)'}]},
+  {title:'どう', tag:'권유·의견',
+   desc:'"어때요?"라고 권유하거나 의견을 물을 때 써요.',
+   ex:[{jp:'コーヒーは どうですか。',ko:'커피는 어때요? (권유)'},{jp:'この ふくは どう?',ko:'이 옷 어때? (의견 묻기)'}]},
+  {title:'종조사 よ', tag:'종조사',
+   desc:'상대가 모르는 정보를 알려줄 때 문장 끝에 붙여요. "~이에요(알려주는 느낌)".',
+   ex:[{jp:'この みせ、やすいですよ。',ko:'이 가게, 싸요~ (정보 제공)'}]},
+  {title:'종조사 ね', tag:'종조사',
+   desc:'상대의 동의·공감을 구할 때 써요. "~네요, ~죠?".',
+   ex:[{jp:'きょうは あついですね。',ko:'오늘 덥네요. (동의 구하기)'},{jp:'おいしいですね。',ko:'맛있네요.'}]},
+  {title:'どちら / どっち', tag:'의문사',
+   desc:'둘 다 "어느 쪽". どちら는 격식 있는 말투, どっち는 캐주얼한 회화체예요.',
+   ex:[{jp:'どちらが いいですか。',ko:'어느 쪽이 좋으세요? (격식)'},{jp:'どっちが いい?',ko:'어느 쪽이 좋아? (친구끼리)'}]},
+  {title:'〜かな', tag:'회화체',
+   desc:'혼잣말처럼 "~일까?, ~려나?" 하고 가볍게 추측·고민할 때.',
+   ex:[{jp:'なにに しようかな。',ko:'뭘로 할까~?'},{jp:'あしたは あめかな。',ko:'내일은 비가 오려나?'}]},
+  {title:'ちょっと', tag:'회화체',
+   desc:'"조금"이라는 뜻이지만, 거절을 부드럽게 하거나 말끝을 흐릴 때도 써요.',
+   ex:[{jp:'それは ちょっと…。',ko:'그건 좀… (완곡한 거절)'},{jp:'ちょっと たかいですね。',ko:'좀 비싸네요.'}]},
+  {title:'いい의 세 가지 얼굴', tag:'회화체',
+   desc:'いい는 문맥에 따라 허락·승낙·사양이 모두 돼요. 억양과 상황으로 구분!',
+   ex:[{jp:'たべても いいですか。— いいですよ。',ko:'먹어도 돼요? — 좋아요. (허락/승낙)'},
+       {jp:'コーヒーは? — いえ、いいです。',ko:'커피는요? — 아뇨, 괜찮아요. (사양)'}]},
+  {title:'〜から 〜まで', tag:'조사',
+   desc:'"~부터 ~까지". 시간·장소 모두 사용할 수 있어요.',
+   ex:[{jp:'がっこうは くじから よじまでです。',ko:'학교는 9시부터 4시까지입니다.'},
+       {jp:'いえから えきまで あるきます。',ko:'집에서 역까지 걷습니다.'}]},
+];
+
+/* =========================================================
+   데이터: 지시 대명사 (탭⑨)
+========================================================= */
+const DEMO_ROWS = [
+  {cat:'물건',    ko:'이것/그것/저것/어느 것',   cells:[{jp:'これ',ko:'이것'},{jp:'それ',ko:'그것'},{jp:'あれ',ko:'저것'},{jp:'どれ',ko:'어느 것'}]},
+  {cat:'장소',    ko:'여기/거기/저기/어디',      cells:[{jp:'ここ',ko:'여기'},{jp:'そこ',ko:'거기'},{jp:'あそこ',ko:'저기'},{jp:'どこ',ko:'어디'}]},
+  {cat:'방향',    ko:'이쪽/그쪽/저쪽/어느 쪽',   cells:[{jp:'こちら',ko:'이쪽'},{jp:'そちら',ko:'그쪽'},{jp:'あちら',ko:'저쪽'},{jp:'どちら',ko:'어느 쪽'}]},
+  {cat:'명사 수식',ko:'이/그/저/어느 + 명사',    cells:[{jp:'この',ko:'이~'},{jp:'その',ko:'그~'},{jp:'あの',ko:'저~'},{jp:'どの',ko:'어느~'}]},
+  {cat:'상태 수식',ko:'이런/그런/저런/어떤',     cells:[{jp:'こんな',ko:'이런'},{jp:'そんな',ko:'그런'},{jp:'あんな',ko:'저런'},{jp:'どんな',ko:'어떤'}]},
+];
+const DEMO_ALL = DEMO_ROWS.flatMap(r => r.cells.map(c => ({...c, cat:r.cat})));
+const DEMO_EXAMPLES = [
+  {cat:'물건',     a:{jp:'これは なんですか。',ko:'이것은 무엇입니까?'},     b:{jp:'それは とけいです。',ko:'그것은 시계입니다.'}},
+  {cat:'장소',     a:{jp:'トイレは どこですか。',ko:'화장실은 어디예요?'},   b:{jp:'あそこです。',ko:'저기예요.'}},
+  {cat:'방향',     a:{jp:'おくには どちらですか。',ko:'고향(나라)은 어느 쪽이세요?'}, b:{jp:'かんこくです。',ko:'한국입니다.'}},
+  {cat:'명사 수식', a:{jp:'この ラーメン、おいしいですね。',ko:'이 라멘, 맛있네요.'},  b:{jp:'その みせは やすいですよ。',ko:'그 가게는 싸요.'}},
+  {cat:'상태 수식', a:{jp:'どんな えいがが すきですか。',ko:'어떤 영화를 좋아해요?'}, b:{jp:'こんな えいがが すきです。',ko:'이런 영화를 좋아해요.'}},
+];
+
+/* =========================================================
+   유틸 · 저장소 · 테마
+========================================================= */
+const LS_PREFIX = 'jpapp:';
+function loadLS(key, fallback) {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    return raw === null ? fallback : JSON.parse(raw);
+  } catch (e) { return fallback; }
+}
+function saveLS(key, value) {
+  try { localStorage.setItem(LS_PREFIX + key, JSON.stringify(value)); } catch (e) {}
+}
+function removeLS(key) {
+  try { localStorage.removeItem(LS_PREFIX + key); } catch (e) {}
+}
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function sample(arr, n, excludeIdx = -1) {
+  const pool = arr.map((v, i) => i).filter(i => i !== excludeIdx);
+  return shuffle(pool).slice(0, n).map(i => arr[i]);
+}
+// 날짜 기반 "오늘의 단어" 20개 (루프 방식: 끝에 닿으면 처음으로 순환)
+function todaysWords() {
+  const dayNum = Math.floor(Date.now() / 86400000); // UTC 기준 일 수
+  const size = 20;
+  const start = (dayNum * size) % WORDS.length;
+  const out = [];
+  for (let i = 0; i < size; i++) out.push(WORDS[(start + i) % WORDS.length]);
+  return out;
+}
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// 글자 수에 따라 폰트 크기를 줄여 줄바꿈 방지 (startLen 초과 시 비례 축소)
+function fz(text, base, min, startLen) {
+  const len = (text || '').length;
+  if (len <= startLen) return base;
+  return Math.max(min, Math.round(base * startLen / len));
+}
+
+/* ── 가나 → 로마자 발음 변환 (헵번식 기반, 교과서 표기) ──
+   규칙: っ은 다음 자음 겹치기(ち 앞은 t), ん은 n,
+   장음 ー은 모음 반복, 조사 は는 wa / へ는 e */
+const KANA2ROMA = {
+  'あ':'a','い':'i','う':'u','え':'e','お':'o',
+  'か':'ka','き':'ki','く':'ku','け':'ke','こ':'ko',
+  'さ':'sa','し':'shi','す':'su','せ':'se','そ':'so',
+  'た':'ta','ち':'chi','つ':'tsu','て':'te','と':'to',
+  'な':'na','に':'ni','ぬ':'nu','ね':'ne','の':'no',
+  'は':'ha','ひ':'hi','ふ':'fu','へ':'he','ほ':'ho',
+  'ま':'ma','み':'mi','む':'mu','め':'me','も':'mo',
+  'や':'ya','ゆ':'yu','よ':'yo',
+  'ら':'ra','り':'ri','る':'ru','れ':'re','ろ':'ro',
+  'わ':'wa','を':'o',
+  'が':'ga','ぎ':'gi','ぐ':'gu','げ':'ge','ご':'go',
+  'ざ':'za','じ':'ji','ず':'zu','ぜ':'ze','ぞ':'zo',
+  'だ':'da','ぢ':'ji','づ':'zu','で':'de','ど':'do',
+  'ば':'ba','び':'bi','ぶ':'bu','べ':'be','ぼ':'bo',
+  'ぱ':'pa','ぴ':'pi','ぷ':'pu','ぺ':'pe','ぽ':'po',
+  'ぁ':'a','ぃ':'i','ぅ':'u','ぇ':'e','ぉ':'o',
+  'きゃ':'kya','きゅ':'kyu','きょ':'kyo',
+  'しゃ':'sha','しゅ':'shu','しょ':'sho',
+  'ちゃ':'cha','ちゅ':'chu','ちょ':'cho',
+  'にゃ':'nya','にゅ':'nyu','にょ':'nyo',
+  'ひゃ':'hya','ひゅ':'hyu','ひょ':'hyo',
+  'みゃ':'mya','みゅ':'myu','みょ':'myo',
+  'りゃ':'rya','りゅ':'ryu','りょ':'ryo',
+  'ぎゃ':'gya','ぎゅ':'gyu','ぎょ':'gyo',
+  'じゃ':'ja','じゅ':'ju','じょ':'jo',
+  'びゃ':'bya','びゅ':'byu','びょ':'byo',
+  'ぴゃ':'pya','ぴゅ':'pyu','ぴょ':'pyo',
+};
+function nextKanaRomaji(s, i) {
+  const ch = s[i];
+  if (!ch) return null;
+  const nx = s[i+1];
+  if (nx && 'ゃゅょ'.includes(nx)) return KANA2ROMA[ch + nx] || null;
+  return KANA2ROMA[ch] || null;
+}
+function kanaToRomaji(text) {
+  if (!text) return '';
+  // 괄호 안 보조 표기 제거 + 가타카나 → 히라가나 (장음 ー 유지)
+  let s = '';
+  for (const ch of String(text).replace(/\([^)]*\)/g, '')) {
+    const c = ch.codePointAt(0);
+    s += (c >= 0x30A1 && c <= 0x30F6) ? String.fromCodePoint(c - 0x60) : ch;
+  }
+  let out = '';
+  const lastVowel = () => {
+    const m = out.match(/[aiueo](?=[^aiueo]*$)/);
+    return m ? m[0] : null;
+  };
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === 'っ') {                                  // 촉음 → 다음 자음 겹치기
+      const nr = nextKanaRomaji(s, i + 1);
+      if (nr) out += nr.startsWith('ch') ? 't' : nr[0];
+      continue;
+    }
+    if (ch === 'ん') { out += 'n'; continue; }           // 발음
+    if (ch === 'ー') {                                   // 장음 → 모음 반복
+      const v = lastVowel();
+      if (v) out += v;
+      continue;
+    }
+    const isEnd = i === s.length - 1 || ' 、。!?'.includes(s[i+1] || '');
+    if (ch === 'は' && isEnd) { out += 'wa'; continue; } // 조사 は = wa
+    if (ch === 'へ' && isEnd) { out += 'e'; continue; }  // 조사 へ = e
+    let key = ch;
+    const nx = s[i+1];
+    if (nx && 'ゃゅょ'.includes(nx)) { key = ch + nx; i++; }
+    const r = KANA2ROMA[key];
+    if (r) out += r;
+    else if (ch === '・' || ch === ' ' || ch === '　') out += ' ';
+    else if ('→↔/'.includes(ch)) out += ' ' + ch + ' ';
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
+// ── 학습 기록 추적 ──
+function markSeen(w) {
+  const s = loadLS('seenJp', []);
+  if (!s.includes(w.jp)) { s.push(w.jp); saveLS('seenJp', s); }
+}
+function logActivity() {
+  const a = loadLS('activity', []);
+  const t = todayStr();
+  if (!a.includes(t)) { a.push(t); saveLS('activity', a); }
+}
+function fmtDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function calcStreak() {
+  const a = new Set(loadLS('activity', []));
+  let n = 0;
+  const d = new Date();
+  if (!a.has(fmtDate(d))) d.setDate(d.getDate() - 1); // 오늘 아직 안 했으면 어제부터
+  while (a.has(fmtDate(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function maxStreak() {
+  const ds = [...new Set(loadLS('activity', []))].sort();
+  let best = 0, cur = 0, prev = null;
+  for (const s of ds) {
+    const d = new Date(s + 'T00:00:00');
+    cur = (prev && d - prev === 86400000) ? cur + 1 : 1;
+    best = Math.max(best, cur);
+    prev = d;
+  }
+  return best;
+}
+const PronCtx = React.createContext(false);
+function Pron({ y, size, style }) {
+  const on = React.useContext(PronCtx);
+  if (!on || !y) return null;
+  const t = kanaToRomaji(y);
+  if (!t) return null;
+  return <span style={{display:'block', fontSize:size || 10, opacity:0.6, marginTop:2, fontWeight:500, letterSpacing:'0.3px', fontFamily:"'Noto Sans KR', sans-serif", fontStyle:'italic', ...style}}>{t}</span>;
+}
+
+// 도면 팔레트: 저채도 블루 계열, 네온 금지
+const C = {
+  bg:'#0F172A', panel:'#1E293B', card:'#243247', cardHi:'#2B3D58',
+  line:'rgba(111,143,191,0.18)', text:'#F8FAFC', sub:'#94A3B8',
+  ok:'#22C55E', bad:'#EF4444',
+};
+const THEMES = [
+  {name:'블루프린트', accent:'#4A6FA5', accent2:'#6F8FBF'},
+  {name:'스틸',      accent:'#5C7A99', accent2:'#84A0BC'},
+  {name:'잉크',      accent:'#5B6B9E', accent2:'#8290C0'},
+  {name:'청회',      accent:'#50838B', accent2:'#7AA6AD'},
+  {name:'흑연',      accent:'#66758C', accent2:'#8E9CB2'},
+  {name:'먹빛',      accent:'#75688F', accent2:'#9B8FB4'},
+];
+
+/* =========================================================
+   공통 컴포넌트
+========================================================= */
+// 선형 아이콘 — 제도 도구 느낌, 1.7px 스트로크
+function Ic({ d, size, color, style }) {
+  return (
+    <svg width={size||20} height={size||20} viewBox="0 0 24 24" fill="none"
+      stroke={color||'currentColor'} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={style}>
+      {(Array.isArray(d) ? d : [d]).map((p, i) => <path key={i} d={p} />)}
+    </svg>
+  );
+}
+const ICONS = {
+  home:  ['M3 10.5L12 3l9 7.5', 'M5 9.5V21h14V9.5', 'M10 21v-6h4v6'],
+  book:  ['M4 19.5A2.5 2.5 0 016.5 17H20', 'M4 19.5V4.5A2.5 2.5 0 016.5 2H20v15H6.5A2.5 2.5 0 004 19.5z'],
+  pencil:['M12 20h9', 'M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z'],
+  chat:  ['M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z'],
+  ruler: ['M21 3L3 21h18V3z', 'M14 10v2', 'M11 13v2', 'M17 7v2'],
+  gear:  ['M4 21v-7', 'M4 10V3', 'M12 21v-9', 'M12 8V3', 'M20 21v-5', 'M20 12V3', 'M2 14h4', 'M10 8h4', 'M18 16h4'],
+};
+// 원형 진행률 (도넛)
+function Donut({ pct, size, theme }) {
+  const sw = 5.5;
+  const r = (size - sw) / 2, c = size / 2, circ = 2 * Math.PI * r;
+  const p = Math.max(0, Math.min(1, pct));
+  return (
+    <svg width={size} height={size}>
+      <circle cx={c} cy={c} r={r} stroke={C.panel} strokeWidth={sw} fill="none" />
+      <circle cx={c} cy={c} r={r} stroke={theme.accent} strokeWidth={sw} fill="none"
+        strokeDasharray={circ} strokeDashoffset={circ * (1 - p)} strokeLinecap="round"
+        transform={`rotate(-90 ${c} ${c})`} style={{transition:'stroke-dashoffset .4s'}} />
+      <text x="50%" y="52%" textAnchor="middle" dominantBaseline="central"
+        fill={C.text} fontSize={size * 0.23} fontWeight="800" fontFamily="Pretendard, sans-serif">
+        {Math.round(p * 100)}%
+      </text>
+    </svg>
+  );
+}
+// 탭 상단 일본어 캡션 — 정보 구조의 일부
+function JpCap({ jp }) {
+  return <div className="jp" style={{fontSize:11.5, color:C.sub, fontWeight:700, letterSpacing:'0.06em', marginBottom:8}}>{jp}</div>;
+}
+function Card({ children, style, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      background:C.card,
+      border:'1px solid ' + C.line,
+      borderRadius:14, padding:16, marginBottom:12,
+      ...style
+    }}>{children}</div>
+  );
+}
+function SectionTitle({ children, theme }) {
+  return (
+    <div style={{display:'flex', alignItems:'center', gap:8, margin:'20px 0 10px'}}>
+      <span style={{width:14, height:2, background:theme.accent, display:'inline-block'}} />
+      <span style={{fontSize:12.5, fontWeight:700, color:C.sub, letterSpacing:'0.08em'}}>{children}</span>
+    </div>
+  );
+}
+function SubTabs({ tabs, active, onChange, theme, small }) {
+  return (
+    <div style={{display:'flex', gap:6, overflowX:'auto', padding:'2px 0', marginBottom:12}}>
+      {tabs.map(t => (
+        <button key={t} onClick={() => onChange(t)} style={{
+          flexShrink:0,
+          padding: small ? '6px 12px' : '8px 14px',
+          borderRadius:8, fontSize:13, fontWeight: active===t ? 700 : 500,
+          background: active===t ? theme.accent : C.cardHi,
+          color: active===t ? '#fff' : C.sub,
+          transition:'background .15s',
+        }}>{t}</button>
+      ))}
+    </div>
+  );
+}
+function BigButton({ children, onClick, theme, ghost, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      width:'100%', padding:'14px 0', borderRadius:14, fontSize:15, fontWeight:700,
+      background: ghost ? C.cardHi : theme.accent,
+      color:'#fff', opacity: disabled ? 0.4 : 1, marginTop:8,
+    }}>{children}</button>
+  );
+}
+
+/* 범용 4지선다(또는 N지선다) 퀴즈 엔진
+   questions: [{prompt, promptSub?, answer, choices:[...]}]  */
+function QuizRunner({ questions, theme, onFinish, jpPrompt }) {
+  const [idx, setIdx] = useState(0);
+  const [picked, setPicked] = useState(null);   // 선택한 choice 텍스트
+  const [wrongList, setWrongList] = useState([]);
+  const [score, setScore] = useState(0);
+  const lockRef = useRef(false);
+  const q = questions[idx];
+
+  const pick = (choice) => {
+    if (lockRef.current) return;
+    lockRef.current = true;
+    setPicked(choice);
+    const correct = choice === q.answer;
+    if (correct) setScore(s => s + 1);
+    else setWrongList(w => [...w, q]);
+    setTimeout(() => {
+      lockRef.current = false;
+      setPicked(null);
+      if (idx + 1 >= questions.length) {
+        onFinish({ score: correct ? score + 1 : score, total: questions.length,
+                   wrong: correct ? wrongList : [...wrongList, q] });
+      } else {
+        setIdx(i => i + 1);
+      }
+    }, 750);
+  };
+
+  return (
+    <div className="fade-up">
+      <div style={{display:'flex', justifyContent:'space-between', fontSize:13, opacity:0.7, marginBottom:8}}>
+        <span>{idx + 1} / {questions.length}</span>
+        <span>정답 {score}</span>
+      </div>
+      <div style={{height:4, borderRadius:2, background:C.panel, marginBottom:20}}>
+        <div style={{height:4, borderRadius:2, width:((idx)/questions.length*100)+'%', background:theme.accent, transition:'width .2s'}} />
+      </div>
+      <Card style={{textAlign:'center', padding:'28px 16px'}}>
+        <div className={jpPrompt ? 'jp' : ''} style={{fontSize: fz(q.prompt, 34, 18, 7), fontWeight:700, lineHeight:1.4}}>{q.prompt}</div>
+        {q.promptSub ? <div style={{fontSize:13, opacity:0.6, marginTop:6}}>{q.promptSub}</div> : null}
+      </Card>
+      <div style={{display:'grid', gridTemplateColumns: questions[0].choices.length > 4 ? '1fr 1fr' : '1fr', gap:8}}>
+        {q.choices.map((c, i) => {
+          let bg = C.cardHi;
+          if (picked !== null) {
+            if (c === q.answer) bg = C.ok;
+            else if (c === picked) bg = C.bad;
+          }
+          return (
+            <button key={i} onClick={() => pick(c)} style={{
+              padding:'13px 10px', borderRadius:10, fontSize: fz(c, 16, 11, 9),
+              fontWeight:600, background:bg, color:'#fff', transition:'background .15s',
+              wordBreak:'keep-all',
+            }}>{c}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function QuizResult({ result, theme, onRetry, wrongRender }) {
+  const rate = Math.round(result.score / result.total * 100);
+  return (
+    <div className="fade-up">
+      <Card style={{textAlign:'center', padding:'30px 16px'}}>
+        <div style={{fontSize:14, opacity:0.7}}>결과</div>
+        <div style={{fontSize:44, fontWeight:900, color:theme.accent, margin:'6px 0'}}>{result.score} / {result.total}</div>
+        <div style={{fontSize:15}}>정답률 {rate}%</div>
+      </Card>
+      {result.wrong.length > 0 && (
+        <>
+          <SectionTitle theme={theme}>틀린 항목</SectionTitle>
+          {result.wrong.map((q, i) => (
+            <Card key={i} style={{padding:'12px 14px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              {wrongRender ? wrongRender(q) : (
+                <>
+                  <span className="jp" style={{fontSize:17, fontWeight:700}}>{q.prompt}</span>
+                  <span style={{fontSize:14, color:theme.accent, fontWeight:700}}>{q.answer}</span>
+                </>
+              )}
+            </Card>
+          ))}
+        </>
+      )}
+      <BigButton theme={theme} onClick={onRetry}>다시 풀기</BigButton>
+    </div>
+  );
+}
+
+/* =========================================================
+   탭① 오십음도 + 문자퀴즈 (통합)
+========================================================= */
+function KanaCell({ item, mode, hideMode, theme }) {
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => { setRevealed(false); }, [hideMode, mode]);
+  if (!item) return <div />;
+  const ch = mode === 'hira' ? item.h : item.k;
+  const hidden = hideMode && !revealed;
+  return (
+    <button onClick={() => hideMode && setRevealed(r => !r)} style={{
+      background:C.card, border:'1px solid ' + C.line,
+      borderRadius:8, padding:'8px 2px', display:'flex', flexDirection:'column',
+      alignItems:'center', gap:2, minHeight:56,
+    }}>
+      <span className="jp" style={{fontSize:20, fontWeight:700, opacity: hidden ? 0 : 1, transition:'opacity .15s'}}>{hidden ? '?' : ch}</span>
+      <span style={{fontSize:10, opacity: hidden ? 0.9 : 0.55, color: hidden ? theme.accent : 'inherit', fontWeight: hidden ? 700 : 400}}>{item.r}</span>
+    </button>
+  );
+}
+function KanaGrid({ rows, cols, mode, hideMode, theme }) {
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:6}}>
+      {rows.map((row, i) => (
+        <div key={i} style={{display:'grid', gridTemplateColumns:`repeat(${cols},1fr)`, gap:6}}>
+          {row.map((item, j) => <KanaCell key={j} item={item} mode={mode} hideMode={hideMode} theme={theme} />)}
+        </div>
+      ))}
+    </div>
+  );
+}
+// 범위별 문자 풀: basic(기본음) | daku(탁음·반탁음) | you(요음) | all
+const KANA_RANGES = [
+  {id:'basic', label:'기본음', rows:() => GOJUON},
+  {id:'daku',  label:'탁음·반탁음', rows:() => DAKUON},
+  {id:'you',   label:'요음', rows:() => YOUON},
+  {id:'all',   label:'전체', rows:() => [...GOJUON, ...DAKUON, ...YOUON]},
+];
+function kanaPool(set, rangeId) {
+  const range = KANA_RANGES.find(r => r.id === rangeId) || KANA_RANGES[3];
+  const flat = range.rows().flat().filter(Boolean);
+  return flat.flatMap(item => {
+    const out = [];
+    if (set === 'hira' || set === 'both') out.push({ch:item.h, r:item.r});
+    if (set === 'kata' || set === 'both') out.push({ch:item.k, r:item.r});
+    return out;
+  });
+}
+function KanaQuizSection({ theme }) {
+  const [phase, setPhase] = useState('setup');
+  const [set, setSet] = useState('hira');
+  const [range, setRange] = useState('basic');
+  const [dir, setDir] = useState('c2r');
+  const [questions, setQuestions] = useState([]);
+  const [result, setResult] = useState(null);
+
+  const start = () => {
+    const pool = kanaPool(set, range);
+    const picked = shuffle(pool).slice(0, 16);
+    const qs = picked.map(item => {
+      const others = shuffle(pool.filter(x => x.r !== item.r));
+      const uniq = []; const seen = new Set();
+      for (const o of others) {
+        const key = dir === 'c2r' ? o.r : o.ch;
+        if (!seen.has(key)) { seen.add(key); uniq.push(o); }
+        if (uniq.length === 7) break;
+      }
+      const choices = shuffle([item, ...uniq]).map(x => dir === 'c2r' ? x.r : x.ch);
+      return dir === 'c2r'
+        ? { prompt:item.ch, answer:item.r, choices }
+        : { prompt:item.r, answer:item.ch, choices };
+    });
+    setQuestions(qs);
+    setPhase('play');
+  };
+
+  if (phase === 'play') return (
+    <QuizRunner questions={questions} theme={theme} jpPrompt={dir==='c2r'}
+      onFinish={r => { setResult(r); setPhase('done'); }} />
+  );
+  if (phase === 'done') return (
+    <QuizResult result={result} theme={theme} onRetry={() => setPhase('setup')} />
+  );
+  const rangeLabel = (KANA_RANGES.find(r => r.id === range) || {}).label;
+  return (
+    <div className="fade-up">
+      <SectionTitle theme={theme}>출제 범위</SectionTitle>
+      <SubTabs theme={theme} small
+        tabs={KANA_RANGES.map(r => r.label)}
+        active={rangeLabel}
+        onChange={t => setRange(KANA_RANGES.find(r => r.label === t).id)} />
+      <SectionTitle theme={theme}>문자 종류</SectionTitle>
+      <SubTabs theme={theme} small
+        tabs={['히라가나','가타카나','둘 다']}
+        active={set==='hira'?'히라가나':set==='kata'?'가타카나':'둘 다'}
+        onChange={t => setSet(t==='히라가나'?'hira':t==='가타카나'?'kata':'both')} />
+      <SectionTitle theme={theme}>출제 방향</SectionTitle>
+      <SubTabs theme={theme} small
+        tabs={['글자 → 로마자','로마자 → 글자']}
+        active={dir==='c2r'?'글자 → 로마자':'로마자 → 글자'}
+        onChange={t => setDir(t==='글자 → 로마자'?'c2r':'r2c')} />
+      <Card style={{fontSize:13, opacity:0.75, lineHeight:1.6}}>
+        <b style={{color:theme.accent}}>{rangeLabel}</b> 범위에서 무작위 16문제, 8지선다로 출제돼요.
+      </Card>
+      <BigButton theme={theme} onClick={start}>퀴즈 시작</BigButton>
+    </div>
+  );
+}
+function KanaTab({ theme }) {
+  const [view, setView] = useState('문자표');
+  const [mode, setMode] = useState('hira');
+  const [sub, setSub] = useState('오십음도');
+  const [hideMode, setHideMode] = useState(false);
+  return (
+    <div className="fade-up">
+      <JpCap jp="五十音" />
+      <SubTabs theme={theme} tabs={['문자표','퀴즈']} active={view} onChange={setView} />
+      {view === '퀴즈' ? <KanaQuizSection theme={theme} /> : (
+        <>
+          <SubTabs theme={theme} tabs={['hira','kata'].map(m=>m==='hira'?'히라가나':'가타카나')}
+            active={mode==='hira'?'히라가나':'가타카나'}
+            onChange={t => setMode(t==='히라가나'?'hira':'kata')} />
+          <SubTabs theme={theme} small tabs={['오십음도','탁음·반탁음','요음','특수음']} active={sub} onChange={setSub} />
+          {sub !== '특수음' && (
+            <button onClick={() => setHideMode(h => !h)} style={{
+              width:'100%', padding:'10px 0', borderRadius:12, fontSize:13, fontWeight:700, marginBottom:12,
+              background: hideMode ? theme.accent : C.cardHi, color:'#fff',
+            }}>
+              {hideMode ? '가리기 모드 ON · 글자를 터치하면 공개' : '가리기 모드 OFF · 켜서 암기 테스트'}
+            </button>
+          )}
+          {sub === '오십음도' && <KanaGrid rows={GOJUON} cols={5} mode={mode} hideMode={hideMode} theme={theme} />}
+          {sub === '탁음·반탁음' && <KanaGrid rows={DAKUON} cols={5} mode={mode} hideMode={hideMode} theme={theme} />}
+          {sub === '요음' && <KanaGrid rows={YOUON} cols={3} mode={mode} hideMode={hideMode} theme={theme} />}
+          {sub === '특수음' && TOKUSHU.map((t, i) => (
+            <Card key={i}>
+              <div style={{fontWeight:700, fontSize:15, color:theme.accent, marginBottom:6}}>{t.title}</div>
+              <div style={{fontSize:13, lineHeight:1.6, opacity:0.85, marginBottom:10}}>{t.desc}</div>
+              <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                {t.ex.map((e, j) => (
+                  <div key={j} style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', fontSize:14, background:C.panel, borderRadius:8, padding:'8px 10px'}}>
+                    <span className="jp" style={{fontWeight:700}}>{e.jp}<Pron y={e.jp} /></span>
+                    <span style={{opacity:0.7, fontSize:13}}>{e.ko}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   탭③ 단어장 + 암기 (통합)
+========================================================= */
+function Flashcards({ deck, theme, showYomi, title, onExit, onMark }) {
+  const [order] = useState(() => shuffle(deck));
+  const [idx, setIdx] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [known, setKnown] = useState([]);
+  const [unknown, setUnknown] = useState([]);
+  const done = idx >= order.length;
+  const mark = (ok) => {
+    const w = order[idx];
+    if (ok) setKnown(k => [...k, w]); else setUnknown(u => [...u, w]);
+    if (onMark) onMark(w, ok, idx + 1 >= order.length);
+    setFlipped(false);
+    setIdx(i => i + 1);
+  };
+  if (done) return (
+    <div className="fade-up">
+      <Card style={{textAlign:'center', padding:'28px 16px'}}>
+        <div style={{fontSize:14, opacity:0.7}}>{title} 완료!</div>
+        <div style={{fontSize:30, fontWeight:900, margin:'8px 0'}}>
+          <span style={{color:C.ok}}>알아 {known.length}</span>
+          <span style={{opacity:0.4, margin:'0 8px'}}>/</span>
+          <span style={{color:C.bad}}>모름 {unknown.length}</span>
+        </div>
+      </Card>
+      {unknown.length > 0 && (
+        <>
+          <SectionTitle theme={theme}>다시 볼 단어</SectionTitle>
+          {unknown.map((w, i) => (
+            <Card key={i} style={{padding:'12px 14px', display:'flex', justifyContent:'space-between'}}>
+              <span className="jp" style={{fontWeight:700}}>{w.jp}{showYomi && w.yomi !== w.jp ? ` (${w.yomi})` : ''}</span>
+              <span style={{opacity:0.75, fontSize:14}}>{w.ko}</span>
+            </Card>
+          ))}
+        </>
+      )}
+      <BigButton theme={theme} onClick={onExit}>목록으로</BigButton>
+    </div>
+  );
+  const w = order[idx];
+  return (
+    <div className="fade-up">
+      <div style={{display:'flex', justifyContent:'space-between', fontSize:13, opacity:0.7, marginBottom:10}}>
+        <button onClick={onExit} style={{fontSize:13, opacity:0.8}}>← 나가기</button>
+        <span>{idx + 1} / {order.length}</span>
+      </div>
+      <button onClick={() => setFlipped(f => !f)} style={{
+        width:'100%', minHeight:240, borderRadius:24, padding:24,
+        background: C.card,
+        border: flipped ? '1.5px solid ' + theme.accent : '1px solid ' + C.line,
+        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8,
+        transition:'background .2s',
+      }}>
+        {!flipped ? (
+          <>
+            <span className="jp" style={{fontSize:fz(w.jp,38,22,5), fontWeight:700}}>{w.jp}</span>
+            {showYomi && w.yomi !== w.jp && <span className="jp" style={{fontSize:fz(w.yomi,17,13,8), opacity:0.7}}>{w.yomi}</span>}
+            <Pron y={w.yomi} size={13} style={{marginTop:0}} />
+            <span style={{fontSize:12, opacity:0.5, marginTop:10}}>터치해서 뜻 보기</span>
+          </>
+        ) : (
+          <>
+            <span className="jp" style={{fontSize:fz(w.jp,18,13,7), fontWeight:700, color:C.sub}}>
+              {w.jp}{w.yomi !== w.jp ? ' · ' + w.yomi : ''}
+            </span>
+            <span style={{fontSize:fz(w.ko,25,17,8), fontWeight:800, color:theme.accent, textAlign:'center', lineHeight:1.35}}>{w.ko}</span>
+          </>
+        )}
+      </button>
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:12}}>
+        <button onClick={() => mark(false)} style={{padding:'14px 0', borderRadius:14, fontSize:15, fontWeight:700, background:C.bad, color:'#fff'}}>✗ 모름</button>
+        <button onClick={() => mark(true)} style={{padding:'14px 0', borderRadius:14, fontSize:15, fontWeight:700, background:C.ok, color:'#fff'}}>✓ 알아</button>
+      </div>
+    </div>
+  );
+}
+function getReviewDeck() {
+  const fp = loadLS('flashToday', null);
+  const fpWrong = (fp && fp.date === todayStr()) ? fp.wrong : [];
+  return [...loadLS('recentWrong', []), ...fpWrong]
+    .filter((w, i, a) => w && w.jp && a.findIndex(x => x.jp === w.jp) === i);
+}
+function VocabTab({ theme, showYomi, intent }) {
+  const [mode, setMode] = useState(intent === 'test' ? '테스트' : '단어장');
+  const [view, setView] = useState(intent === 'today' ? 'today' : intent === 'review' ? 'review' : 'list'); // list | today | all | review
+  const [search, setSearch] = useState('');
+  const today = useMemo(() => todaysWords(), []);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return WORDS;
+    return WORDS.filter(w => w.jp.includes(q) || w.yomi.includes(q) || w.ko.toLowerCase().includes(q));
+  }, [search]);
+
+  const onTodayMark = (w, ok, last) => {
+    const cur = loadLS('flashToday', null);
+    const base = (cur && cur.date === todayStr()) ? cur : { date: todayStr(), done: 0, known: 0, wrong: [] };
+    base.done = Math.min(base.done + 1, 20);
+    if (ok) {
+      base.known = Math.min(base.known + 1, 20);
+      base.wrong = base.wrong.filter(x => x.jp !== w.jp);
+    } else {
+      base.wrong = [...base.wrong.filter(x => x.jp !== w.jp), {jp:w.jp, yomi:w.yomi, ko:w.ko}].slice(-10);
+    }
+    saveLS('flashToday', base);
+    markSeen(w);
+    if (last) logActivity();
+  };
+  const onAllMark = (w, ok, last) => { markSeen(w); if (last) logActivity(); };
+  const onReviewMark = (w, ok, last) => {
+    if (ok) {
+      saveLS('recentWrong', loadLS('recentWrong', []).filter(x => x.jp !== w.jp));
+      const fp = loadLS('flashToday', null);
+      if (fp && fp.date === todayStr()) { fp.wrong = fp.wrong.filter(x => x.jp !== w.jp); saveLS('flashToday', fp); }
+    }
+    markSeen(w);
+    if (last) logActivity();
+  };
+  const reviewDeck = useMemo(() => getReviewDeck(), [view]);
+
+  if (mode === '테스트') return (
+    <div className="fade-up">
+      <JpCap jp="単語帳 / テスト" />
+      <SubTabs theme={theme} tabs={['단어장','테스트']} active={mode} onChange={m => { setMode(m); setView('list'); }} />
+      <WordTestTab theme={theme} />
+    </div>
+  );
+  if (view === 'today') return <Flashcards deck={today} theme={theme} showYomi={showYomi} title="오늘의 단어 20" onExit={() => setView('list')} onMark={onTodayMark} />;
+  if (view === 'all') return <Flashcards deck={WORDS} theme={theme} showYomi={showYomi} title="전체 단어" onExit={() => setView('list')} onMark={onAllMark} />;
+  if (view === 'review') {
+    if (reviewDeck.length === 0) return (
+      <div className="fade-up">
+        <Card style={{textAlign:'center', padding:'30px 16px'}}>
+          <div style={{fontSize:15, fontWeight:800}}>복습할 오답이 없어요</div>
+          <div style={{fontSize:12.5, color:C.sub, marginTop:6, lineHeight:1.6}}>테스트나 암기에서 틀린 단어가 여기에 모여요.</div>
+        </Card>
+        <BigButton theme={theme} onClick={() => setView('list')}>단어장으로</BigButton>
+      </div>
+    );
+    return <Flashcards deck={reviewDeck} theme={theme} showYomi={showYomi} title="오답 복습" onExit={() => setView('list')} onMark={onReviewMark} />;
+  }
+
+  return (
+    <div className="fade-up">
+      <JpCap jp="単語帳" />
+      <SubTabs theme={theme} tabs={['단어장','테스트']} active={mode} onChange={m => { setMode(m); setView('list'); }} />
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14}}>
+        <button onClick={() => setView('today')} style={{padding:'16px 10px', borderRadius:14, background:theme.accent, color:'#fff', textAlign:'left'}}>
+          <div style={{fontSize:12, opacity:0.85}}>날짜 기반 자동 분배</div>
+          <div style={{fontSize:15, fontWeight:800, marginTop:2}}>오늘의 단어 20</div>
+        </button>
+        <button onClick={() => setView('all')} style={{padding:'16px 10px', borderRadius:14, background:C.cardHi, color:'#fff', textAlign:'left'}}>
+          <div style={{fontSize:12, opacity:0.7}}>{WORDS.length}개 전체 순환</div>
+          <div style={{fontSize:15, fontWeight:800, marginTop:2}}>전체 순차 암기</div>
+        </button>
+      </div>
+      {getReviewDeck().length > 0 && (
+        <button onClick={() => setView('review')} style={{
+          width:'100%', padding:'11px 14px', borderRadius:8, marginBottom:12,
+          background:C.panel, border:'1px solid ' + C.line,
+          display:'flex', justifyContent:'space-between', alignItems:'center',
+        }}>
+          <span style={{fontSize:13, fontWeight:700}}><span className="jp" style={{color:theme.accent, marginRight:6}}>復習</span>오답 복습</span>
+          <span style={{fontSize:12, color:C.sub}}>{getReviewDeck().length}개 →</span>
+        </button>
+      )}
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="일본어 / 읽기 / 뜻 검색"
+        style={{width:'100%', padding:'12px 14px', borderRadius:12, border:'1px solid ' + C.line,
+                background:C.card, color:C.text, fontSize:14, marginBottom:12, outline:'none'}} />
+      <div style={{display:'grid', gridTemplateColumns:'1.1fr 1.2fr 1.2fr', gap:0, fontSize:12, opacity:0.55, padding:'0 12px 6px'}}>
+        <span>일본어</span><span>읽기</span><span style={{textAlign:'right'}}>뜻</span>
+      </div>
+      <div style={{display:'flex', flexDirection:'column', gap:6}}>
+        {filtered.map((w, i) => (
+          <div key={i} style={{display:'grid', gridTemplateColumns:'1.1fr 1.2fr 1.2fr', alignItems:'center',
+            background:C.card, borderRadius:8, padding:'10px 12px'}}>
+            <span className="jp" style={{fontSize:fz(w.jp,16,12,5), fontWeight:700, whiteSpace:'nowrap'}}>
+              {w.jp}<Pron y={w.yomi} />
+            </span>
+            <span className="jp" style={{fontSize:fz(w.yomi,13,10,8), opacity: showYomi ? 0.75 : 0.25, whiteSpace:'nowrap'}}>{showYomi ? w.yomi : '・・・'}</span>
+            <span style={{fontSize:fz(w.ko,13,10,9), opacity:0.85, textAlign:'right', whiteSpace:'nowrap'}}>{w.ko}</span>
+          </div>
+        ))}
+        {filtered.length === 0 && <Card style={{textAlign:'center', opacity:0.6, fontSize:14}}>검색 결과가 없어요</Card>}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   탭④ 단어테스트 (오늘의 20개, 4지선다, 통계 저장)
+========================================================= */
+function WordTestTab({ theme }) {
+  const [phase, setPhase] = useState('setup');
+  const [dir, setDir] = useState('j2k');  // j2k 일→한, k2j 한→일
+  const [questions, setQuestions] = useState([]);
+  const [result, setResult] = useState(null);
+  const [history, setHistory] = useState(() => loadLS('testHistory', []));
+  const today = useMemo(() => todaysWords(), []);
+
+  const start = () => {
+    const qs = shuffle(today).map(w => {
+      const others = sample(WORDS.filter(x => x.ko !== w.ko && x.jp !== w.jp), 3);
+      if (dir === 'j2k') {
+        return { prompt:w.jp, promptSub:w.yomi !== w.jp ? w.yomi : null,
+                 answer:w.ko, choices:shuffle([w.ko, ...others.map(o => o.ko)]), w };
+      }
+      return { prompt:w.ko, answer:w.jp, choices:shuffle([w.jp, ...others.map(o => o.jp)]), w };
+    });
+    setQuestions(qs); setPhase('play');
+  };
+  const finish = (r) => {
+    setResult(r); setPhase('done');
+    const entry = { date: todayStr(), score: r.score, total: r.total,
+                    rate: Math.round(r.score / r.total * 100), dir };
+    const next = [entry, ...history].slice(0, 50);
+    setHistory(next); saveLS('testHistory', next);
+    saveLS('recentWrong', r.wrong.filter(q => q.w).map(q => q.w).slice(0, 8));
+    today.forEach(markSeen);
+    logActivity();
+  };
+
+  if (phase === 'play') return <QuizRunner questions={questions} theme={theme} jpPrompt={dir==='j2k'} onFinish={finish} />;
+  if (phase === 'done') return <QuizResult result={result} theme={theme} onRetry={() => setPhase('setup')} />;
+
+  return (
+    <div className="fade-up">
+      <Card style={{fontSize:13, lineHeight:1.6, opacity:0.8}}>
+        <b style={{color:theme.accent}}>오늘의 단어 20개</b>와 같은 범위에서 4지선다 테스트를 봐요.
+        결과는 자동으로 기록돼요.
+      </Card>
+      <SectionTitle theme={theme}>출제 방향</SectionTitle>
+      <SubTabs theme={theme}
+        tabs={['일본어 → 한국어','한국어 → 일본어']}
+        active={dir==='j2k'?'일본어 → 한국어':'한국어 → 일본어'}
+        onChange={t => setDir(t==='일본어 → 한국어'?'j2k':'k2j')} />
+      <BigButton theme={theme} onClick={start}>테스트 시작</BigButton>
+      <SectionTitle theme={theme}>기록 ({history.length})</SectionTitle>
+      {history.length === 0 && <Card style={{textAlign:'center', fontSize:13, opacity:0.6}}>아직 기록이 없어요. 첫 테스트를 시작해 보세요!</Card>}
+      {history.map((h, i) => (
+        <Card key={i} style={{padding:'12px 14px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div>
+            <div style={{fontSize:14, fontWeight:700}}>{h.date}</div>
+            <div style={{fontSize:11, opacity:0.55}}>{h.dir === 'j2k' ? '일 → 한' : '한 → 일'}</div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:16, fontWeight:800, color: h.rate >= 80 ? C.ok : h.rate >= 50 ? theme.accent : C.bad}}>{h.score}/{h.total}</div>
+            <div style={{fontSize:11, opacity:0.55}}>{h.rate}%</div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/* =========================================================
+   탭⑤ 일상표현
+========================================================= */
+function ExpressionTab({ theme }) {
+  const cats = Object.keys(EXPRESSIONS);
+  const [cat, setCat] = useState(cats[0]);
+  const [open, setOpen] = useState(null);
+  useEffect(() => { setOpen(null); }, [cat]);
+  return (
+    <div className="fade-up">
+      <JpCap jp="会話表現" />
+      <SubTabs theme={theme} tabs={cats} active={cat} onChange={setCat} />
+      {EXPRESSIONS[cat].map((e, i) => {
+        const isPair = !!e.a;
+        return (
+          <Card key={i} onClick={() => setOpen(open === i ? null : i)} style={{cursor:'pointer', padding:'14px 16px'}}>
+            {isPair ? (
+              <>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, marginBottom:8}}>
+                  <span style={{fontSize:10.5, fontWeight:800, color:theme.accent, background:C.cardHi,
+                    padding:'3px 8px', borderRadius:6}}>{e.rel}</span>
+                  <span style={{fontSize:12, opacity:0.5, transform: open === i ? 'rotate(180deg)' : 'none', transition:'transform .2s'}}>▼</span>
+                </div>
+                <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                  <div style={{display:'flex', alignItems:'baseline', gap:8}}>
+                    <span style={{fontSize:15, flexShrink:0, color:theme.accent, fontWeight:700, lineHeight:1.3}}>・</span>
+                    <span className="jp" style={{fontSize:16, fontWeight:700, lineHeight:1.5}}>{e.a.jp}<Pron y={e.a.jp} /></span>
+                  </div>
+                  <div style={{display:'flex', alignItems:'baseline', gap:8, paddingLeft:14}}>
+                    <span style={{fontSize:12, flexShrink:0, color:theme.accent}}>↳</span>
+                    <span className="jp" style={{fontSize:16, fontWeight:700, lineHeight:1.5, opacity:0.95}}>{e.b.jp}<Pron y={e.b.jp} /></span>
+                  </div>
+                </div>
+                {open === i && (
+                  <div className="fade-up" style={{marginTop:10, paddingTop:10, borderTop:'1px solid ' + C.line}}>
+                    <div style={{display:'flex', flexDirection:'column', gap:4}}>
+                      <div style={{fontSize:14, fontWeight:700, color:theme.accent}}>・ {e.a.ko}</div>
+                      <div style={{fontSize:14, fontWeight:700, color:theme.accent, paddingLeft:14}}>↳ {e.b.ko}</div>
+                    </div>
+                    <div style={{fontSize:13, opacity:0.75, marginTop:6, lineHeight:1.6}}>{e.note}</div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8}}>
+                  <span className="jp" style={{fontSize:17, fontWeight:700, lineHeight:1.5}}>{e.jp}<Pron y={e.jp} /></span>
+                  <span style={{fontSize:12, opacity:0.5, transform: open === i ? 'rotate(180deg)' : 'none', transition:'transform .2s'}}>▼</span>
+                </div>
+                {open === i && (
+                  <div className="fade-up" style={{marginTop:10, paddingTop:10, borderTop:'1px solid ' + C.line}}>
+                    <div style={{fontSize:15, fontWeight:700, color:theme.accent}}>{e.ko}</div>
+                    <div style={{fontSize:13, opacity:0.75, marginTop:4, lineHeight:1.6}}>{e.note}</div>
+                  </div>
+                )}
+              </>
+            )}
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+/* =========================================================
+   학습 탭 공용: 표 카드 + 그룹 퀴즈
+========================================================= */
+function PairGrid({ items, theme, cols }) {
+  return (
+    <div style={{display:'grid', gridTemplateColumns:`repeat(${cols || 2},1fr)`, gap:6, marginBottom:4}}>
+      {items.map((it, i) => (
+        <div key={i} style={{
+          background:C.card, borderRadius:8, padding:'10px 8px', textAlign:'center',
+          border: it.warn ? `1px solid ${theme.accent}` : '1px solid transparent',
+        }}>
+          <div style={{fontSize:12, opacity:0.6}}>{it.n}{it.warn ? ' ※' : ''}</div>
+          <div className="jp" style={{fontSize:fz(it.jp,15,11,6), fontWeight:700, marginTop:2, whiteSpace:'nowrap'}}>{it.jp}</div>
+          <Pron y={it.jp} size={9} />
+        </div>
+      ))}
+    </div>
+  );
+}
+/* 그룹화 → 그룹 내 랜덤 출제 (일→한 4지선다) */
+function makeGroupedQuiz(groups, dir) {
+  return groups.flatMap(g => {
+    const qs = shuffle(g.items).slice(0, Math.min(g.items.length, 6));
+    return qs.map(item => {
+      const others = sample(g.items.filter(x => x.jp !== item.jp && x.n !== item.n), 3);
+      if (dir === 'k2j') {
+        return { prompt:item.n, promptSub:'['+g.name+']',
+                 answer:item.jp, choices:shuffle([item.jp, ...others.map(o => o.jp)]) };
+      }
+      return { prompt:item.jp, promptSub:'['+g.name+']',
+               answer:item.n, choices:shuffle([item.n, ...others.map(o => o.n)]) };
+    });
+  });
+}
+function LearnQuizSection({ groups, theme, dirToggle }) {
+  const [phase, setPhase] = useState('idle');
+  const [dir, setDir] = useState('j2k');
+  const [questions, setQuestions] = useState([]);
+  const [result, setResult] = useState(null);
+  const start = () => { setQuestions(makeGroupedQuiz(groups, dir)); setPhase('play'); };
+  if (phase === 'play') return <QuizRunner questions={questions} theme={theme} jpPrompt={dir==='j2k'} onFinish={r => { setResult(r); setPhase('done'); }} />;
+  if (phase === 'done') return <QuizResult result={result} theme={theme} onRetry={() => setPhase('idle')} />;
+  return (
+    <>
+      <SectionTitle theme={theme}>퀴즈</SectionTitle>
+      {dirToggle && (
+        <SubTabs theme={theme} small
+          tabs={['숫자 → 읽기','읽기 → 숫자']}
+          active={dir==='j2k'?'숫자 → 읽기':'읽기 → 숫자'}
+          onChange={t => setDir(t==='숫자 → 읽기'?'j2k':'k2j')} />
+      )}
+      <Card style={{fontSize:13, opacity:0.75, lineHeight:1.6}}>
+        {groups.map(g => g.name).join(' / ')} 그룹별로 묶어 그룹 안에서 랜덤 출제돼요. (그룹당 최대 6문제)
+      </Card>
+      <BigButton theme={theme} onClick={start}>퀴즈 시작</BigButton>
+    </>
+  );
+}
+
+/* =========================================================
+   학습⑥ 시간과 날짜
+========================================================= */
+function TimeTab({ theme }) {
+  const [sub, setSub] = useState('시간');
+  return (
+    <div className="fade-up">
+      <SubTabs theme={theme} tabs={['시간','분','날짜','월','때','퀴즈']} active={sub} onChange={setSub} />
+      {sub === '시간' && (
+        <>
+          <Card style={{fontSize:13, opacity:0.8, lineHeight:1.6}}>
+            ※ <b style={{color:theme.accent}}>4시(よじ)·7시(しちじ)·9시(くじ)</b>는 숫자 읽기와 달라서 자주 틀려요. 테두리 표시된 칸을 집중해서 외우자!
+          </Card>
+          <PairGrid items={HOURS} theme={theme} cols={3} />
+        </>
+      )}
+      {sub === '분' && (
+        <>
+          <SectionTitle theme={theme}>5분 단위</SectionTitle>
+          <PairGrid items={MIN5} theme={theme} cols={3} />
+          <SectionTitle theme={theme}>10분 단위</SectionTitle>
+          <PairGrid items={MIN10} theme={theme} cols={3} />
+          <SectionTitle theme={theme}>1분 ~ 60분 전체</SectionTitle>
+          <Card style={{fontSize:12.5, opacity:0.8, lineHeight:1.6, padding:'10px 14px'}}>
+            끝이 1·3·4·6·8·10분이면 <b style={{color:theme.accent}}>〜ぷん</b>, 나머지는 〜ふん으로 읽어요.
+          </Card>
+          <PairGrid items={MIN_UNIT} theme={theme} cols={3} />
+        </>
+      )}
+      {sub === '날짜' && (
+        <>
+          <Card style={{fontSize:13, opacity:0.8, lineHeight:1.6}}>
+            ※ 1일~10일, 14일, 20일, 24일은 고유어 읽기! 테두리 칸이 예외예요.
+          </Card>
+          <PairGrid items={DAYS31} theme={theme} cols={3} />
+        </>
+      )}
+      {sub === '월' && (
+        <>
+          <Card style={{fontSize:13, opacity:0.8, lineHeight:1.6}}>
+            ※ <b style={{color:theme.accent}}>4월(しがつ)·7월(しちがつ)·9월(くがつ)</b> 주의!
+          </Card>
+          <PairGrid items={MONTHS} theme={theme} cols={3} />
+        </>
+      )}
+      {sub === '때' && (
+        <>
+          <SectionTitle theme={theme}>일 (어제·오늘·내일)</SectionTitle>
+          <PairGrid items={RELATIVE_TIME.slice(0,3)} theme={theme} cols={3} />
+          <SectionTitle theme={theme}>주</SectionTitle>
+          <PairGrid items={RELATIVE_TIME.slice(3,6)} theme={theme} cols={3} />
+          <SectionTitle theme={theme}>월</SectionTitle>
+          <PairGrid items={RELATIVE_TIME.slice(6,9)} theme={theme} cols={3} />
+          <SectionTitle theme={theme}>연</SectionTitle>
+          <PairGrid items={RELATIVE_TIME.slice(9,12)} theme={theme} cols={3} />
+        </>
+      )}
+      {sub === '퀴즈' && <LearnQuizSection groups={TIME_QUIZ_GROUPS} theme={theme} />}
+    </div>
+  );
+}
+
+/* =========================================================
+   학습⑦ 숫자
+========================================================= */
+function NumberTab({ theme }) {
+  const [sub, setSub] = useState('표');
+  return (
+    <div className="fade-up">
+      <SubTabs theme={theme} tabs={['표','퀴즈']} active={sub} onChange={setSub} />
+      {sub === '표' && (
+        <>
+          <SectionTitle theme={theme}>1 ~ 10</SectionTitle>
+          <Card style={{fontSize:12.5, opacity:0.8, lineHeight:1.6, padding:'10px 14px'}}>
+            ※ <b style={{color:theme.accent}}>4(よん・し) / 7(なな・しち) / 9(きゅう・く)</b>는 읽기가 두 개! 뒤에 붙는 말에 따라 골라 써요. (4시=よじ처럼 변형 주의)
+          </Card>
+          <PairGrid items={ONES} theme={theme} cols={5} />
+          <SectionTitle theme={theme}>10 ~ 90</SectionTitle>
+          <Card style={{fontSize:12.5, opacity:0.8, lineHeight:1.6, padding:'10px 14px'}}>
+            규칙적이에요: <b style={{color:theme.accent}}>1~9 읽기 + じゅう</b>. 40은 よんじゅう, 70은 ななじゅう, 90은 きゅうじゅう만 써요.
+          </Card>
+          <PairGrid items={TENS} theme={theme} cols={3} />
+          <SectionTitle theme={theme}>100 ~ 900</SectionTitle>
+          <Card style={{fontSize:12.5, opacity:0.8, lineHeight:1.6, padding:'10px 14px'}}>
+            ※ <b style={{color:theme.accent}}>300 さんびゃく / 600 ろっぴゃく / 800 はっぴゃく</b> — 음이 변해요!
+          </Card>
+          <PairGrid items={HUNDREDS} theme={theme} cols={3} />
+          <SectionTitle theme={theme}>1,000 ~ 9,000</SectionTitle>
+          <Card style={{fontSize:12.5, opacity:0.8, lineHeight:1.6, padding:'10px 14px'}}>
+            ※ <b style={{color:theme.accent}}>3,000 さんぜん / 8,000 はっせん</b> 주의. 1,000은 いちせん이 아니라 <b>せん</b>!
+          </Card>
+          <PairGrid items={THOUSANDS} theme={theme} cols={3} />
+          <SectionTitle theme={theme}>10,000</SectionTitle>
+          <Card style={{fontSize:12.5, opacity:0.8, lineHeight:1.6, padding:'10px 14px'}}>
+            10,000은 반대로 まん이 아니라 <b style={{color:theme.accent}}>いちまん</b>이라고 いち를 꼭 붙여요.
+          </Card>
+          <PairGrid items={TENTHOUSAND} theme={theme} cols={1} />
+          <SectionTitle theme={theme}>조합 예시</SectionTitle>
+          <Card style={{fontSize:13, opacity:0.85, lineHeight:1.8, padding:'12px 14px'}}>
+            큰 자리부터 그대로 이어 읽어요.<br/>
+            <span className="jp" style={{fontWeight:700}}>365</span> → さんびゃく ろくじゅう ご<br/>
+            <span className="jp" style={{fontWeight:700}}>2,980</span> → にせん きゅうひゃく はちじゅう<br/>
+            <span className="jp" style={{fontWeight:700}}>8,600えん</span> → はっせん ろっぴゃくえん
+          </Card>
+        </>
+      )}
+      {sub === '퀴즈' && (
+        <LearnQuizSection theme={theme} dirToggle
+          groups={[
+            {name:'1~10',items:ONES},
+            {name:'10~90',items:TENS},
+            {name:'백 단위',items:HUNDREDS},
+            {name:'천 단위·만',items:[...THOUSANDS, ...TENTHOUSAND]},
+          ]} />
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   학습⑧ 문법 정리
+========================================================= */
+function GrammarTab({ theme }) {
+  const [open, setOpen] = useState(0);
+  return (
+    <div className="fade-up">
+      {GRAMMAR.map((g, i) => (
+        <Card key={i} onClick={() => setOpen(open === i ? null : i)} style={{cursor:'pointer', padding:'14px 16px'}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8}}>
+            <div style={{display:'flex', alignItems:'center', gap:8, minWidth:0}}>
+              <span style={{fontSize:10, fontWeight:700, color:theme.accent, background:C.cardHi,
+                padding:'3px 7px', borderRadius:6, flexShrink:0}}>{g.tag}</span>
+              <span className="jp" style={{fontSize:15, fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{g.title}</span>
+            </div>
+            <span style={{fontSize:12, opacity:0.5, transform: open === i ? 'rotate(180deg)' : 'none', transition:'transform .2s'}}>▼</span>
+          </div>
+          {open === i && (
+            <div className="fade-up" style={{marginTop:10, paddingTop:10, borderTop:'1px solid ' + C.line}}>
+              <div style={{fontSize:13, lineHeight:1.7, opacity:0.85, marginBottom:10}}>{g.desc}</div>
+              <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                {g.ex.map((e, j) => (
+                  <div key={j} style={{background:C.panel, borderRadius:8, padding:'8px 10px'}}>
+                    <div className="jp" style={{fontSize:14, fontWeight:700, lineHeight:1.5}}>{e.jp}<Pron y={e.jp} /></div>
+                    <div style={{fontSize:12.5, opacity:0.7, marginTop:2}}>{e.ko}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/* =========================================================
+   학습⑨ 지시 대명사
+========================================================= */
+function DemoTab({ theme }) {
+  const [sub, setSub] = useState('표');
+  const [revealed, setRevealed] = useState({});
+  const toggle = (key) => setRevealed(r => ({...r, [key]: !r[key]}));
+  return (
+    <div className="fade-up">
+      <SubTabs theme={theme} tabs={['표','퀴즈']} active={sub} onChange={setSub} />
+      {sub === '표' && (
+        <>
+          <Card style={{fontSize:13, opacity:0.8, lineHeight:1.6}}>
+            칸을 <b style={{color:theme.accent}}>터치하면 한국어 뜻</b>이 나와요.
+            こ(가까이)·そ(상대 쪽)·あ(둘 다 먼 곳)·ど(의문) 감각으로 외우자!
+          </Card>
+          <div style={{display:'grid', gridTemplateColumns:'64px repeat(4,1fr)', gap:5, fontSize:12}}>
+            <div />
+            {['こ','そ','あ','ど'].map(h => (
+              <div key={h} className="jp" style={{textAlign:'center', fontWeight:800, color:theme.accent, fontSize:15, padding:'4px 0'}}>{h}</div>
+            ))}
+            {DEMO_ROWS.map((row, ri) => (
+              <React.Fragment key={ri}>
+                <div style={{display:'flex', alignItems:'center', fontSize:11.5, opacity:0.7, fontWeight:700, wordBreak:'keep-all'}}>{row.cat}</div>
+                {row.cells.map((c, ci) => {
+                  const key = ri + '-' + ci;
+                  const on = revealed[key];
+                  return (
+                    <button key={ci} onClick={() => toggle(key)} style={{
+                      background: on ? theme.accent : C.card,
+                      border:'1px solid ' + C.line, borderRadius:8,
+                      padding:'10px 2px', textAlign:'center', transition:'background .15s', minHeight:48,
+                    }}>
+                      {on
+                        ? <span style={{fontSize:12, fontWeight:700, color:'#fff'}}>{c.ko}</span>
+                        : <span className="jp" style={{fontSize:14, fontWeight:700}}>{c.jp}<Pron y={c.jp} size={8.5} style={{marginTop:0}} /></span>}
+                    </button>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+          <SectionTitle theme={theme}>적용례</SectionTitle>
+          {DEMO_EXAMPLES.map((ex, i) => (
+            <Card key={i} style={{padding:'12px 14px'}}>
+              <div style={{fontSize:10.5, fontWeight:800, color:theme.accent, background:C.cardHi,
+                padding:'3px 8px', borderRadius:6, display:'inline-block', marginBottom:8}}>{ex.cat}</div>
+              <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                <div style={{display:'flex', alignItems:'baseline', gap:8}}>
+                  <span style={{fontSize:15, flexShrink:0, color:theme.accent, fontWeight:700, lineHeight:1.3}}>・</span>
+                  <div>
+                    <span className="jp" style={{fontSize:15, fontWeight:700, lineHeight:1.5}}>{ex.a.jp}<Pron y={ex.a.jp} /></span>
+                    <div style={{fontSize:12, opacity:0.65, marginTop:2}}>{ex.a.ko}</div>
+                  </div>
+                </div>
+                <div style={{display:'flex', alignItems:'baseline', gap:8, paddingLeft:14}}>
+                  <span style={{fontSize:12, flexShrink:0, color:theme.accent}}>↳</span>
+                  <div>
+                    <span className="jp" style={{fontSize:15, fontWeight:700, lineHeight:1.5}}>{ex.b.jp}<Pron y={ex.b.jp} /></span>
+                    <div style={{fontSize:12, opacity:0.65, marginTop:2}}>{ex.b.ko}</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </>
+      )}
+      {sub === '퀴즈' && (
+        <LearnQuizSection theme={theme}
+          groups={DEMO_ROWS.map(r => ({name:r.cat, items:r.cells.map(c => ({jp:c.jp, n:c.ko}))}))} />
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   학습 기록·통계 (学習記録)
+========================================================= */
+function MiniBars({ data, theme, height, accentLast }) {
+  // data: [{label, value, max?}]
+  const max = Math.max(...data.map(d => d.value), 1);
+  return (
+    <div style={{display:'flex', alignItems:'flex-end', gap:6, height: height || 70}}>
+      {data.map((d, i) => (
+        <div key={i} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3, height:'100%', justifyContent:'flex-end'}}>
+          <span style={{fontSize:9, color:C.sub}}>{d.value}</span>
+          <div style={{width:'100%', maxWidth:24, borderRadius:'3px 3px 0 0',
+            height: Math.max(3, d.value / max * (height ? height - 28 : 42)) + 'px',
+            background: (accentLast && i === data.length - 1) ? theme.accent : C.cardHi}} />
+          <span style={{fontSize:8.5, color:C.sub}}>{d.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+function RecordsTab({ theme }) {
+  const history = loadLS('testHistory', []);
+  const activity = loadLS('activity', []);
+  const seen = loadLS('seenJp', []).length;
+  const streak = calcStreak();
+  const best = maxStreak();
+  const avg = history.length ? Math.round(history.reduce((s, h) => s + h.rate, 0) / history.length) : null;
+  const now = new Date();
+  const monthCount = activity.filter(d => d.startsWith(now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'))).length;
+  // 주간 학습 스트립 (최근 7일)
+  const week = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    week.push({ label: '일월화수목금토'[d.getDay()], on: activity.includes(fmtDate(d)), today: i === 0 });
+  }
+  const rateData = history.slice(0, 10).reverse().map(h => ({label: h.date.slice(5), value: h.rate}));
+  const wrongData = history.slice(0, 10).reverse().map(h => ({label: h.date.slice(5), value: h.total - h.score}));
+
+  return (
+    <div className="fade-up">
+      {/* 누적 통계 */}
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12}}>
+        {[
+          {label:'누적 학습일', val: activity.length + '일'},
+          {label:'최고 연속 학습', val: best + '일'},
+          {label:'누적 학습 단어', val: seen + '개'},
+          {label:'평균 정답률', val: avg === null ? '—' : avg + '%'},
+        ].map((s, i) => (
+          <div key={i} style={{background:C.card, border:'1px solid ' + C.line, borderRadius:8, padding:'14px 12px'}}>
+            <div style={{fontSize:19, fontWeight:900, color:theme.accent}}>{s.val}</div>
+            <div style={{fontSize:10.5, color:C.sub, marginTop:3, letterSpacing:'0.05em'}}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+      {/* 주간 학습 */}
+      <Card>
+        <div style={{display:'flex', justifyContent:'space-between', marginBottom:10}}>
+          <span style={{fontSize:13, fontWeight:800}}>주간 학습</span>
+          <span style={{fontSize:10.5, color:C.sub}}>이번 달 {monthCount}일 · 현재 연속 {streak}일</span>
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:6}}>
+          {week.map((d, i) => (
+            <div key={i} style={{textAlign:'center'}}>
+              <div style={{height:30, borderRadius:6,
+                background: d.on ? theme.accent : C.panel,
+                border: d.today ? '1.5px solid ' + (theme.accent2 || theme.accent) : '1px solid ' + C.line,
+                opacity: d.on ? 1 : 0.8}} />
+              <div style={{fontSize:9, color: d.today ? theme.accent : C.sub, marginTop:4, fontWeight: d.today ? 800 : 400}}>{d.label}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+      {/* 정답률 추이 */}
+      {rateData.length >= 2 ? (
+        <Card>
+          <div style={{display:'flex', justifyContent:'space-between', marginBottom:10}}>
+            <span style={{fontSize:13, fontWeight:800}}>정답률 추이</span>
+            <span style={{fontSize:10.5, color:C.sub}}>최근 {rateData.length}회 (%)</span>
+          </div>
+          <MiniBars data={rateData} theme={theme} accentLast />
+        </Card>
+      ) : (
+        <Card style={{fontSize:12.5, color:C.sub, lineHeight:1.6}}>테스트를 2회 이상 보면 정답률·오답 추이 그래프가 표시돼요.</Card>
+      )}
+      {/* 오답 감소 추세 */}
+      {wrongData.length >= 2 && (
+        <Card>
+          <div style={{display:'flex', justifyContent:'space-between', marginBottom:10}}>
+            <span style={{fontSize:13, fontWeight:800}}>오답 추이</span>
+            <span style={{fontSize:10.5, color:C.sub}}>회당 오답 수 — 줄어드는 게 목표</span>
+          </div>
+          <MiniBars data={wrongData} theme={theme} accentLast />
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   학습 허브 (⑥~⑨ + 기록)
+========================================================= */
+const LEARN_MODULES = [
+  {id:'time', icon:'時', title:'시간과 날짜', desc:'시·분·일·월·때 읽기', comp:TimeTab},
+  {id:'num',  icon:'数', title:'숫자', desc:'1~10,000 읽기', comp:NumberTab},
+  {id:'gram', icon:'文', title:'문법 정리', desc:'3과 핵심 문법 13개', comp:GrammarTab},
+  {id:'demo', icon:'指', title:'지시 대명사', desc:'こ・そ・あ・ど 계열', comp:DemoTab},
+];
+function LearnHub({ theme, initial }) {
+  const [moduleId, setModuleId] = useState(initial || null);
+  const mod = LEARN_MODULES.find(m => m.id === moduleId);
+  if (mod) {
+    const Comp = mod.comp;
+    return (
+      <div>
+        <button onClick={() => setModuleId(null)} style={{fontSize:13, opacity:0.8, marginBottom:12, display:'flex', alignItems:'center', gap:4}}>
+          ← 학습 메뉴
+        </button>
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+          <span className="jp" style={{color:theme.accent, fontWeight:700, fontSize:17}}>{mod.icon}</span>
+          <span style={{fontSize:18, fontWeight:800}}>{mod.title}</span>
+        </div>
+        <Comp theme={theme} />
+      </div>
+    );
+  }
+  return (
+    <div className="fade-up">
+      <JpCap jp="学習" />
+      <Card style={{fontSize:13, opacity:0.8, lineHeight:1.6}}>교과서 보충 학습 모듈과 기록이에요. 표로 익히고 퀴즈로 점검!</Card>
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+        {LEARN_MODULES.map(m => (
+          <button key={m.id} onClick={() => setModuleId(m.id)} style={{
+            background:C.card, border:'1px solid ' + C.line,
+            borderRadius:14, padding:'20px 14px', textAlign:'left',
+          }}>
+            <div className="jp" style={{width:40, height:40, borderRadius:8, background:C.panel, border:'1px solid '+C.line,
+              color:theme.accent, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700}}>{m.icon}</div>
+            <div style={{fontSize:15, fontWeight:800, marginTop:8}}>{m.title}</div>
+            <div style={{fontSize:12, opacity:0.6, marginTop:3, lineHeight:1.5}}>{m.desc}</div>
+          </button>
+        ))}
+      </div>
+      {/* 학습 기록 — 별도 진입 없이 바로 표시 */}
+      <div style={{display:'flex', alignItems:'center', gap:8, margin:'22px 0 10px'}}>
+        <span style={{width:14, height:2, background:theme.accent, display:'inline-block'}} />
+        <span style={{fontSize:12.5, fontWeight:700, color:C.sub, letterSpacing:'0.08em'}}>학습 기록</span>
+        <span className="jp" style={{fontSize:11, color:theme.accent2 || theme.accent, fontWeight:700}}>学習記録</span>
+      </div>
+      <RecordsTab theme={theme} />
+    </div>
+  );
+}
+
+/* =========================================================
+   홈 — 학습 대시보드 (今日の日本語)
+========================================================= */
+function HomeTab({ theme, onGo }) {
+  const fp = loadLS('flashToday', null);
+  const todayFp = (fp && fp.date === todayStr()) ? fp : null;
+  const prog = todayFp ? todayFp.done : 0;
+  const remain = 20 - prog;
+  const history = loadLS('testHistory', []);
+  const last = history[0] || null;
+  const reviewDeck = getReviewDeck();
+  const streak = calcStreak();
+  const seen = loadLS('seenJp', []).length;
+  const activity = loadLS('activity', []);
+  const best = maxStreak();
+  const avg = history.length ? Math.round(history.reduce((s, h) => s + h.rate, 0) / history.length) : null;
+  const dateLabel = (() => { const d = new Date(); return (d.getMonth()+1) + '월 ' + d.getDate() + '일'; })();
+
+  const Idx = ({ n }) => <span style={{fontSize:10, color:C.sub, letterSpacing:'0.15em', fontWeight:700}}>{n}</span>;
+  const JpT = ({ children }) => <span className="jp" style={{fontSize:11, color:theme.accent2 || theme.accent, fontWeight:700, letterSpacing:'0.04em'}}>{children}</span>;
+
+  return (
+    <div className="fade-up">
+      {/* ── 상단 정보 영역: 날짜 · 연속 · 오늘 진행률(도넛) · 누적 ── */}
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', margin:'6px 0 18px'}}>
+        <div>
+          <div className="jp" style={{fontSize:12, color:theme.accent2 || theme.accent, fontWeight:700}}>今日の日本語</div>
+          <div style={{fontSize:22, fontWeight:900, letterSpacing:'-0.5px', margin:'3px 0 6px'}}>{dateLabel}</div>
+          <div style={{fontSize:11.5, color:C.sub, lineHeight:1.7}}>
+            연속 학습 <b style={{color:C.text}}>{streak}일</b><br/>
+            누적 단어 <b style={{color:C.text}}>{seen}개</b>
+          </div>
+        </div>
+        <div style={{textAlign:'center'}}>
+          <Donut pct={prog / 20} size={76} theme={theme} />
+          <div style={{fontSize:9.5, color:C.sub, marginTop:4, letterSpacing:'0.08em'}}>오늘 진행률</div>
+        </div>
+      </div>
+
+      {/* ── 1단계 · 메인: 今日の単語 ── */}
+      <div onClick={() => onGo('vocab', 'today')} style={{
+        background:C.card, border:'1px solid ' + C.line, borderRadius:24,
+        padding:'22px 20px', marginBottom:12, cursor:'pointer',
+      }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <Idx n="01" /><JpT>今日の単語</JpT>
+        </div>
+        <div style={{fontSize:19, fontWeight:800, margin:'8px 0 2px'}}>오늘의 단어 20</div>
+        <div style={{fontSize:12.5, color:C.sub}}>
+          {prog >= 20 ? '20개 전부 완료! 복습도 가능해요' : prog > 0 ? `20개 중 ${prog}개 완료 · 남은 단어 ${remain}개` : '날짜 기반으로 자동 분배된 단어'}
+        </div>
+        <div style={{height:6, borderRadius:3, background:C.panel, marginTop:14}}>
+          <div style={{height:6, borderRadius:3, width:(prog/20*100)+'%', background:theme.accent, transition:'width .3s'}} />
+        </div>
+        <div style={{marginTop:14, padding:'12px 0', borderRadius:10, background:theme.accent, color:'#fff',
+          textAlign:'center', fontSize:14.5, fontWeight:800}}>
+          {prog >= 20 ? '다시 학습하기' : prog > 0 ? '학습 계속하기' : '학습 시작'}
+        </div>
+      </div>
+
+      {/* ── 2단계 · 보조: 今日のテスト ── */}
+      <div onClick={() => onGo('vocab', 'test')} style={{
+        background:C.card, border:'1px solid ' + C.line, borderRadius:14,
+        padding:'15px 18px', marginBottom:10, cursor:'pointer',
+        display:'flex', justifyContent:'space-between', alignItems:'center',
+      }}>
+        <div>
+          <div style={{display:'flex', gap:8, alignItems:'center'}}><Idx n="02" /><JpT>今日のテスト</JpT></div>
+          <div style={{fontSize:15, fontWeight:800, marginTop:4}}>단어 테스트</div>
+          <div style={{fontSize:11.5, color:C.sub, marginTop:2}}>
+            {last ? `최근 ${last.score} / ${last.total} · 정답률 ${last.rate}% · ${last.date.slice(5)} 응시` : '오늘의 단어 20개 범위로 점검'}
+          </div>
+        </div>
+        <span style={{fontSize:17, color: last && last.date === todayStr() ? C.ok : theme.accent, fontWeight:800, flexShrink:0, marginLeft:10}}>
+          {last && last.date === todayStr() ? '✓' : '→'}
+        </span>
+      </div>
+
+      {/* ── 2단계 · 보조: 復習 (행동 유도) ── */}
+      <div style={{
+        background:C.card, border:'1px solid ' + C.line, borderRadius:14,
+        padding:'15px 18px', marginBottom:10,
+      }}>
+        <div style={{display:'flex', gap:8, alignItems:'center'}}><Idx n="03" /><JpT>復習</JpT></div>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:4}}>
+          <div>
+            <div style={{fontSize:15, fontWeight:800}}>오답 복습</div>
+            <div style={{fontSize:11.5, color:C.sub, marginTop:2}}>
+              {reviewDeck.length > 0 ? `복습 필요 단어 ${reviewDeck.length}개` : '틀린 단어가 여기에 모여요'}
+            </div>
+          </div>
+          {reviewDeck.length > 0 && (
+            <button onClick={() => onGo('vocab', 'review')} style={{
+              padding:'9px 14px', borderRadius:8, background:C.cardHi, border:'1px solid ' + C.line,
+              color:C.text, fontSize:12.5, fontWeight:700, flexShrink:0, marginLeft:10,
+            }}>복습 시작</button>
+          )}
+        </div>
+        {reviewDeck.length > 0 && (
+          <div style={{display:'flex', gap:6, flexWrap:'wrap', marginTop:10}}>
+            {reviewDeck.slice(0, 5).map((w, i) => (
+              <span key={i} className="jp" style={{fontSize:12.5, fontWeight:700, background:C.panel,
+                border:'1px solid ' + C.line, borderRadius:6, padding:'4px 9px'}}>{w.jp}</span>
+            ))}
+            {reviewDeck.length > 5 && <span style={{fontSize:11, color:C.sub, alignSelf:'center'}}>+{reviewDeck.length - 5}</span>}
+          </div>
+        )}
+      </div>
+
+      {/* ── 3단계 · 정보: 学習記録 ── */}
+      <div onClick={() => onGo('learn')} style={{
+        background:C.panel, border:'1px solid ' + C.line, borderRadius:8,
+        padding:'13px 16px', cursor:'pointer',
+      }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+          <div style={{display:'flex', gap:8, alignItems:'center'}}><Idx n="04" /><JpT>学習記録</JpT></div>
+          <span style={{fontSize:11, color:C.sub}}>자세히 →</span>
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:4}}>
+          {[
+            {l:'누적일', v: activity.length},
+            {l:'최고 연속', v: best},
+            {l:'단어', v: seen},
+            {l:'정답률', v: avg === null ? '—' : avg + '%'},
+          ].map((s, i) => (
+            <div key={i} style={{textAlign:'center'}}>
+              <div style={{fontSize:14.5, fontWeight:900, color:theme.accent}}>{s.v}</div>
+              <div style={{fontSize:9, color:C.sub, marginTop:2}}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   설정 바텀시트
+========================================================= */
+function SettingsSheet({ theme, themeIdx, setThemeIdx, showYomi, setShowYomi, onClose }) {
+  const resetStats = () => {
+    if (window.confirm('테스트 기록을 모두 삭제할까요?')) {
+      removeLS('testHistory');
+      window.location.reload();
+    }
+  };
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center'}}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width:'100%', maxWidth:480, background:C.panel, borderRadius:'22px 22px 0 0',
+        padding:'20px 20px calc(24px + env(safe-area-inset-bottom))', animation:'sheetUp .25s ease',
+      }}>
+        <div style={{width:40, height:4, borderRadius:2, background:C.line, margin:'0 auto 18px'}} />
+        <div style={{fontSize:17, fontWeight:800, marginBottom:16}}>설정</div>
+        <div style={{fontSize:13, fontWeight:700, opacity:0.7, marginBottom:8}}>테마 색상</div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:20}}>
+          {THEMES.map((t, i) => (
+            <button key={i} onClick={() => setThemeIdx(i)} style={{
+              padding:'10px 6px', borderRadius:12, fontSize:12, fontWeight:700,
+              background:C.card,
+              border: themeIdx === i ? `2px solid ${t.accent}` : '2px solid transparent',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:6,
+            }}>
+              <span style={{width:22, height:22, borderRadius:'50%', background:t.accent, display:'inline-block'}} />
+              {t.name}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setShowYomi(v => !v)} style={{
+          width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center',
+          padding:'14px 16px', borderRadius:14, background:C.card, marginBottom:10,
+        }}>
+          <span style={{fontSize:14, fontWeight:700}}>읽기(요미가나) 표시</span>
+          <span style={{
+            width:46, height:26, borderRadius:13, background: showYomi ? theme.accent : C.cardHi,
+            position:'relative', transition:'background .2s', display:'inline-block',
+          }}>
+            <span style={{position:'absolute', top:3, left: showYomi ? 23 : 3, width:20, height:20, borderRadius:'50%', background:'#fff', transition:'left .2s'}} />
+          </span>
+        </button>
+        <button onClick={resetStats} style={{
+          width:'100%', padding:'14px 16px', borderRadius:14, background:'rgba(239,68,68,0.12)',
+          color:'#F87171', fontSize:14, fontWeight:700, textAlign:'left',
+        }}>테스트 통계 초기화</button>
+        <div style={{textAlign:'center', fontSize:11, opacity:0.4, marginTop:18}}>made by 21209 김예성</div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   App
+========================================================= */
+const NAV = [
+  {id:'home', icon:'home', label:'홈'},
+  {id:'kana', icon:'kana', label:'오십음도'},
+  {id:'vocab', icon:'book', label:'단어장'},
+  {id:'expr', icon:'chat', label:'표현'},
+  {id:'learn', icon:'ruler', label:'학습'},
+];
+function App() {
+  const [tab, setTab] = useState('home');
+  const [intent, setIntent] = useState(null);
+  const go = (t, i) => { setIntent(i || null); setTab(t); };
+  const [themeIdx, setThemeIdxRaw] = useState(() => loadLS('themeIdx', 0));
+  const [showYomi, setShowYomiRaw] = useState(() => loadLS('showYomi', true));
+  const [showPron, setShowPronRaw] = useState(() => loadLS('showPron', false));
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const theme = THEMES[themeIdx] || THEMES[0];
+  const setThemeIdx = (i) => { setThemeIdxRaw(i); saveLS('themeIdx', i); };
+  const setShowYomi = (fn) => setShowYomiRaw(v => { const next = typeof fn === 'function' ? fn(v) : fn; saveLS('showYomi', next); return next; });
+  const togglePron = () => setShowPronRaw(v => { saveLS('showPron', !v); return !v; });
+
+  useEffect(() => {
+    const meta = document.querySelector('meta[name=theme-color]');
+    if (meta) meta.setAttribute('content', C.bg);
+  }, [themeIdx]);
+
+  return (
+    <PronCtx.Provider value={showPron}>
+    <div className="bp-grid" style={{maxWidth:480, margin:'0 auto', minHeight:'100%', display:'flex', flexDirection:'column'}}>
+      {/* 헤더 */}
+      <header style={{
+        position:'sticky', top:0, zIndex:30, background:'rgba(15,23,42,0.92)', backdropFilter:'blur(6px)',
+        padding:'calc(12px + env(safe-area-inset-top)) 18px 12px',
+        display:'flex', justifyContent:'space-between', alignItems:'center',
+        borderBottom:'1px solid ' + C.line,
+      }}>
+        <div style={{display:'flex', alignItems:'center', gap:10}}>
+          <span className="jp" style={{
+            width:32, height:32, borderRadius:8, border:'1.5px solid '+theme.accent, color:theme.accent,
+            display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700,
+          }}>日</span>
+          <div>
+            <div style={{fontSize:16, fontWeight:900, letterSpacing:'-0.3px', lineHeight:1.1}}>일본어 학습</div>
+            <div style={{fontSize:8.5, color:C.sub, letterSpacing:'0.18em', marginTop:2}}>STUDY NOTE</div>
+          </div>
+        </div>
+        <div style={{display:'flex', alignItems:'center', gap:6}}>
+          <button onClick={togglePron} title="로마자 발음 표시" style={{
+            fontSize:12, fontWeight:800, padding:'5px 9px', borderRadius:8,
+            background: showPron ? theme.accent : C.cardHi,
+            color: showPron ? '#fff' : C.sub,
+            border:'1px solid ' + C.line, transition:'background .15s',
+          }}>Aa</button>
+          <button onClick={() => setSettingsOpen(true)} style={{padding:4, color:C.sub, display:'flex'}}><Ic d={ICONS.gear} size={19} /></button>
+        </div>
+      </header>
+
+      {/* 본문 */}
+      <main style={{flex:1, padding:'16px 16px calc(86px + env(safe-area-inset-bottom))'}}>
+        {tab === 'home' && <HomeTab theme={theme} onGo={go} />}
+        {tab === 'kana' && <KanaTab theme={theme} />}
+        {tab === 'vocab' && <VocabTab theme={theme} showYomi={showYomi} intent={intent} />}
+        {tab === 'expr' && <ExpressionTab theme={theme} />}
+        {tab === 'learn' && <LearnHub theme={theme} initial={intent} />}
+      </main>
+
+      {/* 하단 탭 */}
+      <nav style={{
+        position:'fixed', bottom:0, left:0, right:0, zIndex:40,
+        display:'flex', justifyContent:'center',
+      }}>
+        <div style={{
+          width:'100%', maxWidth:480, display:'grid', gridTemplateColumns:'repeat(5,1fr)',
+          background:C.bg, borderTop:'1px solid ' + C.line,
+          padding:'8px 4px calc(8px + env(safe-area-inset-bottom))',
+        }}>
+          {NAV.map(n => (
+            <button key={n.id} onClick={() => { setIntent(null); setTab(n.id); }} style={{
+              display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'4px 0',
+              color: tab === n.id ? theme.accent : C.sub,
+            }}>
+              {n.icon === 'kana'
+                ? <span className="jp" style={{fontSize:17, fontWeight:700, lineHeight:'20px', height:20}}>あ</span>
+                : <Ic d={ICONS[n.icon]} size={19} />}
+              <span style={{fontSize:9.5, fontWeight: tab === n.id ? 800 : 500}}>{n.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {settingsOpen && (
+        <SettingsSheet theme={theme} themeIdx={themeIdx} setThemeIdx={setThemeIdx}
+          showYomi={showYomi} setShowYomi={setShowYomi} onClose={() => setSettingsOpen(false)} />
+      )}
+    </div>
+    </PronCtx.Provider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
